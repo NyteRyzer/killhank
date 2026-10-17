@@ -1,0 +1,1528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kill Hank</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: full-bleed security-cam canvas of the lab; HUD panels float over it as a tactical overlay
+   (metrics left, health top-centre, requisition terminal right). Stacks to one column on phones. */
+:root {
+  color-scheme: dark;
+  --bg: #091014;
+  --panel: rgba(7, 19, 24, 0.86);
+  --panel-solid: #0b1a20;
+  --line: #1c4250;
+  --line-hi: #2e7489;
+  --holo: #63d5ff;
+  --holo-dim: #2b6f86;
+  --text: #cfe2e7;
+  --muted: #6d8b94;
+  --blood: #e3262f;
+  --blood-deep: #4c0b10;
+  --regen: #3fdc86;
+  --hazard: #f2b01e;
+
+  --f-display: "Black Ops One", Impact, "Arial Black", sans-serif;
+  --f-ui: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Share Tech Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo); outline-offset: 2px; }
+
+.app {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(290px, 340px);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "left hud shop" "left stage shop";
+  gap: 14px;
+  padding-block: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+#scene { position: absolute; left: 0; top: 0; z-index: 0; display: block; }
+.panel, .hud, #stage, .left { position: relative; z-index: 1; }
+.left { grid-area: left; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 0; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45), inset 0 0 24px rgba(99,213,255,.05);
+  backdrop-filter: blur(3px);
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--holo);
+}
+.panel-head small { color: var(--muted); letter-spacing: .08em; }
+
+/* ---------- HUD (title + health) ---------- */
+.hud { grid-area: hud; display: grid; gap: 8px; justify-items: center; align-content: start; min-width: 0; }
+.title {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: clamp(30px, 4.4vw, 52px);
+  line-height: 1;
+  letter-spacing: .04em;
+  color: #e9eef0;
+  text-shadow: 0 3px 0 #000, 0 0 18px rgba(227,38,47,.35);
+  text-wrap: balance;
+}
+.title span { color: var(--blood); }
+.subtitle {
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .2em; color: var(--regen);
+  text-transform: uppercase; text-align: center;
+}
+.hp-row { display: flex; align-items: stretch; gap: 10px; width: min(640px, 100%); margin-top: 12px; }
+.hp {
+  flex: 1; min-width: 0;
+  background: rgba(4,10,12,.9);
+  border: 1px solid #5a1b20;
+  border-radius: 3px;
+  padding: 4px;
+  position: relative;
+}
+.hp-label {
+  position: absolute; left: 6px; top: -17px;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .18em; color: #ff8a8f;
+}
+.hp-track { position: relative; height: 26px; background: #1a0507; overflow: hidden; border-radius: 2px; }
+.hp-trail, .hp-fill { position: absolute; inset: 0 auto 0 0; width: 100%; }
+.hp-trail { background: #f3d6d7; opacity: .75; }
+.hp-fill {
+  background: linear-gradient(180deg, #ff4a52 0%, var(--blood) 45%, #9d1219 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+}
+.hp-fill.regen { background: linear-gradient(180deg, #7dffb6 0%, var(--regen) 45%, #148a4b 100%); }
+.hp-track::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(0,0,0,.35) 22px 24px);
+  pointer-events: none;
+}
+.hp-text {
+  position: absolute; inset: 0; display: grid; place-items: center; z-index: 1;
+  font-family: var(--f-mono); font-size: 15px; color: #fff;
+  text-shadow: 0 1px 2px #000, 0 0 6px #000;
+  font-variant-numeric: tabular-nums;
+}
+.ecg {
+  width: 78px; flex: none;
+  border: 1px solid #1b5a3a; border-radius: 3px; background: rgba(3,14,8,.9);
+  display: grid; grid-template-rows: 1fr auto; overflow: hidden;
+}
+.ecg canvas { width: 100%; height: 26px; display: block; }
+.ecg-bpm { font-family: var(--f-mono); font-size: 10px; color: var(--regen); text-align: center; padding-bottom: 2px; }
+.hp-sub {
+  display: flex; justify-content: space-between; gap: 12px; width: min(640px, 100%);
+  font-family: var(--f-mono); font-size: 12px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.hp-sub .regen { color: var(--regen); }
+
+/* ---------- Metrics panel ---------- */
+.stats { grid-area: stats; flex: none; }
+.stat-list { display: grid; gap: 2px; padding: 10px 12px 12px; }
+.dna-box {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; margin-bottom: 6px;
+  border: 1px solid var(--holo-dim); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(99,213,255,.12), rgba(99,213,255,.03));
+}
+.dna-box svg { width: 30px; height: 30px; color: var(--holo); flex: none; }
+.dna-box .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; color: var(--holo); }
+.dna-box .v {
+  font-family: var(--f-mono); font-size: 26px; line-height: 1.05; color: #eaf9ff;
+  text-shadow: 0 0 10px rgba(99,213,255,.5); font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 2px; border-bottom: 1px dashed rgba(46,116,137,.35); }
+.stat:last-of-type { border-bottom: 0; }
+.stat .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.stat .v { font-family: var(--f-mono); font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+.status {
+  margin-top: 8px; padding: 6px 8px; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; text-align: center;
+  border: 1px solid; line-height: 1.35;
+}
+.status.bad { color: #ff8a8f; border-color: #6b1d23; background: rgba(227,38,47,.12); animation: pulse 1.2s ease-in-out infinite; }
+.status.good { color: var(--regen); border-color: #1d6040; background: rgba(63,220,134,.1); }
+@keyframes pulse { 50% { background: rgba(227,38,47,.24); } }
+
+/* ---------- Incident log ---------- */
+.log { grid-area: log; display: flex; flex-direction: column; min-height: 0; }
+.log ol {
+  list-style: none; margin: 0; padding: 8px 12px 10px; overflow-y: auto; min-height: 0; max-height: 230px;
+  font-family: var(--f-mono); font-size: 12px; line-height: 1.45; display: grid; gap: 4px; align-content: start;
+}
+.log li { color: var(--muted); overflow-wrap: anywhere; }
+.log li b { font-weight: 400; color: var(--holo-dim); margin-right: 6px; }
+.log li.kill { color: #ff8a8f; }
+.log li.buy { color: var(--holo); }
+.log li.quip { color: #e8d9a8; }
+.log li.sys { color: var(--regen); }
+.controls { display: flex; gap: 6px; padding: 0 12px 12px; }
+.ctl {
+  flex: 1; padding: 7px 8px; border-radius: 3px; cursor: pointer;
+  background: rgba(99,213,255,.06); border: 1px solid var(--line);
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+.ctl:hover { color: var(--text); border-color: var(--line-hi); }
+.ctl[aria-pressed="true"] { color: var(--holo); border-color: var(--holo-dim); }
+
+/* ---------- Stage (click target) ---------- */
+#stage { grid-area: stage; min-height: 0; cursor: crosshair; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+
+/* ---------- Shop ---------- */
+.shop { grid-area: shop; display: flex; flex-direction: column; min-height: 0; }
+.shop .panel-head { color: var(--holo); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px 0; }
+.tab {
+  padding: 8px 6px; cursor: pointer; border-radius: 3px 3px 0 0;
+  background: transparent; border: 1px solid var(--line); border-bottom-color: transparent;
+  font-family: var(--f-ui); font-weight: 600; font-size: 13px; letter-spacing: .12em; color: var(--muted);
+}
+.tab[aria-selected="true"] { color: #eaf9ff; background: rgba(99,213,255,.12); border-color: var(--holo-dim); border-bottom-color: transparent; }
+.qty { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--holo-dim); }
+.qty span { font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); margin-right: auto; }
+.qty button {
+  min-width: 46px; padding: 4px 8px; cursor: pointer; border-radius: 3px;
+  background: transparent; border: 1px solid var(--line);
+  font-family: var(--f-mono); font-size: 12px; color: var(--muted);
+}
+.qty button[aria-pressed="true"] { color: var(--holo); border-color: var(--holo-dim); background: rgba(99,213,255,.1); }
+.items { list-style: none; margin: 0; padding: 4px 12px 12px; overflow-y: auto; min-height: 0; display: grid; gap: 8px; align-content: start; }
+.item {
+  width: 100%; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; align-items: start;
+  text-align: left; cursor: pointer; padding: 9px 10px;
+  background: linear-gradient(180deg, rgba(17,45,56,.85), rgba(9,26,32,.85));
+  border: 1px solid var(--line); border-radius: 4px;
+  transition: border-color .15s, transform .08s;
+}
+.item:hover:not([aria-disabled="true"]) { border-color: var(--holo); }
+.item:active:not([aria-disabled="true"]) { transform: translateY(1px); }
+.item[aria-disabled="true"] { cursor: not-allowed; }
+.item[aria-disabled="true"] .price { color: #a1525a; border-color: #4a1c22; background: rgba(227,38,47,.06); }
+.item.locked .ico { color: #33505a; }
+.item.locked .nm { color: #4f6b74; }
+.ico {
+  width: 44px; height: 44px; display: grid; place-items: center; border-radius: 3px;
+  background: rgba(0,0,0,.35); border: 1px solid var(--line); color: var(--holo);
+}
+.ico svg { width: 26px; height: 26px; }
+.meta { display: grid; gap: 3px; min-width: 0; }
+.nm-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.nm { font-weight: 700; font-size: 14px; color: #eaf3f5; }
+.lvl { font-family: var(--f-mono); font-size: 11px; color: var(--hazard); white-space: nowrap; }
+.eff { font-family: var(--f-mono); font-size: 12px; color: #ff8a8f; }
+.ds { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.price {
+  justify-self: start; margin-top: 3px; padding: 3px 8px; border-radius: 3px;
+  border: 1px solid #1d6040; background: rgba(63,220,134,.08);
+  font-family: var(--f-mono); font-size: 12px; color: var(--regen); font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Toast + modal ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 5; max-width: calc(100% - 32px);
+  padding: 10px 16px; border-radius: 4px;
+  background: var(--panel-solid); border: 1px solid var(--holo-dim); color: var(--text);
+  font-family: var(--f-mono); font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.6);
+}
+.modal { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.65); padding: 16px; }
+.modal-card { width: min(380px, 100%); padding: 18px; display: grid; gap: 12px; }
+.modal-card h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 22px; color: var(--blood); letter-spacing: .04em; }
+.modal-card p { margin: 0; line-height: 1.5; color: var(--text); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.btn { padding: 8px 14px; border-radius: 3px; cursor: pointer; border: 1px solid var(--line-hi); background: transparent; font-family: var(--f-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+.btn.danger { border-color: #8a232b; background: rgba(227,38,47,.18); color: #ffb3b6; }
+
+/* ---------- Phones / narrow ---------- */
+@media (max-width: 899px) {
+  body { overflow: auto; }
+  .app {
+    height: auto; min-height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: "hud" "stage" "stats" "shop" "log";
+  }
+  .left { display: contents; }
+  #stage { height: clamp(340px, 60vh, 600px); }
+  .stat-list { grid-template-columns: 1fr 1fr; column-gap: 14px; }
+  .dna-box, .status { grid-column: 1 / -1; }
+  .stat:last-of-type { border-bottom: 1px dashed rgba(46,116,137,.35); }
+  .items { overflow: visible; }
+  .log ol { max-height: 180px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status.bad { animation: none; }
+  .item { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <canvas id="scene" aria-hidden="true"></canvas>
+
+  <header class="hud">
+    <h1 class="title">KILL <span>HANK</span></h1>
+    <div class="subtitle">Project Metahuman // Subject H.A.N.K. // Chamber 7</div>
+    <div class="hp-row">
+      <div class="hp" role="meter" aria-label="Hank's health" id="hpMeter" aria-valuemin="0">
+        <div class="hp-label">HANK</div>
+        <div class="hp-track">
+          <div class="hp-trail" id="hpTrail"></div>
+          <div class="hp-fill" id="hpFill"></div>
+          <div class="hp-text" id="hpText">100 / 100 HP</div>
+        </div>
+      </div>
+      <div class="ecg" title="Subject heart rate">
+        <canvas id="ecg" width="156" height="52"></canvas>
+        <div class="ecg-bpm" id="bpm">72 BPM</div>
+      </div>
+    </div>
+    <div class="hp-sub"><span id="nextHp">Next revive: 150 max HP</span><span class="regen" id="regenText">+2/s REGEN</span></div>
+  </header>
+
+  <div class="left">
+  <section class="panel stats" aria-label="Lab metrics">
+    <div class="panel-head">Lab metrics <small>Live</small></div>
+    <div class="stat-list">
+      <div class="dna-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12s10 6 10 6M8.5 6.5h7M8.5 17.5h7M9.5 10h5M9.5 14h5"/></svg>
+        <div><div class="k">DNA POINTS</div><div class="v" id="dna">0</div></div>
+      </div>
+      <div class="stat"><span class="k">Total kills</span><span class="v" id="kills">0</span></div>
+      <div class="stat"><span class="k">Click damage</span><span class="v" id="clickDmg">1</span></div>
+      <div class="stat"><span class="k">Auto DPS</span><span class="v" id="dps">0</span></div>
+      <div class="stat"><span class="k">Lifetime DNA</span><span class="v" id="lifetime">0</span></div>
+      <div class="status bad" id="status">Subject out-healing trauma</div>
+    </div>
+  </section>
+
+  <section class="panel log" aria-label="Incident log">
+    <div class="panel-head">Incident log <small id="clock">00:00</small></div>
+    <ol id="log" aria-live="polite"></ol>
+    <div class="controls">
+      <button class="ctl" id="soundBtn" aria-pressed="false">Sound off</button>
+      <button class="ctl" id="resetBtn">Wipe data</button>
+    </div>
+  </section>
+  </div>
+
+  <div id="stage" role="button" tabindex="0" aria-label="Hank on the testing table. Click or press Space to strike."></div>
+
+  <section class="panel shop" aria-label="Requisition shop">
+    <div class="panel-head">Requisition terminal <small>DNA → hardware</small></div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabW" aria-selected="true" data-tab="weapons">WEAPONS</button>
+      <button class="tab" role="tab" id="tabG" aria-selected="false" data-tab="gadgets">GADGETS</button>
+    </div>
+    <div class="qty"><span id="qtyHint">Active click upgrades</span>
+      <button data-q="1" aria-pressed="true" id="q1">x1</button>
+      <button data-q="10" aria-pressed="false" id="q10">x10</button>
+      <button data-q="max" aria-pressed="false" id="qmax">MAX</button>
+    </div>
+    <ul class="items" id="items" role="tabpanel"></ul>
+  </section>
+
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<div class="modal" id="modal" hidden>
+  <div class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">Wipe all research?</h2>
+    <p>This deletes your DNA, kills and every piece of lab hardware. Hank goes back to 100 HP. It cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn" id="cancelReset">Keep data</button>
+      <button class="btn danger" id="confirmReset">Wipe it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+// ================== DESIGN NUMBERS (from the game bible) ==================
+const BASE_HP = 100;          // Hank starts at 100 HP
+const REGEN = 0.02;           // regenerates 2% of max HP per second
+const REVIVE_MULT = 1.5;      // each revive: max HP x1.5
+const KILL_BONUS = 1.0;       // payout on flatline = this x the max HP just destroyed
+const COST_GROWTH = 1.15;     // price scaling per level owned
+const REVIVE_TIME = 1.6;      // seconds Hank spends regenerating after a kill
+const OFFLINE_RATE = 0.5;     // gadgets keep harvesting at 50% while you're away
+const OFFLINE_CAP = 8 * 3600;
+
+const ICONS = {
+  fists: '<path d="M7 11V7.5a1.5 1.5 0 0 1 3 0V10M10 10V6.5a1.5 1.5 0 0 1 3 0V10M13 10V7a1.5 1.5 0 0 1 3 0v3.5M16 10.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5.6-3.9L5 13a1.5 1.5 0 0 1 2.6-1.5L9 13.5"/>',
+  bat: '<path d="M4 20h2L17 9l-2-2L4 18zM15 7l3-3 2 2-3 3M16 2.5l.8 1.8M21.5 8l-1.8-.8M19.5 2.5l-.8 1.8M21.5 4.5l-1.8.8"/>',
+  chainsaw: '<rect x="2.5" y="9" width="7" height="7" rx="1.5"/><path d="M9.5 10.5H20a2 2 0 0 1 0 4H9.5M5 9V6h3.5M12 10.5V9.5M15 10.5V9.5M18 10.5V9.5M12 15.5v-1M15 15.5v-1M18 15.5v-1"/>',
+  scalpel: '<path d="M3 21l8.5-8.5M11.5 12.5L19 4c1.2 2.2.3 5.2-3 7.3l-3.5 2.2z"/>',
+  cannon: '<rect x="2" y="9" width="9" height="7" rx="2"/><path d="M11 10.5h7v4h-7M18 9v7M20.5 11l1.5-1M20.5 14l1.5 1M21 12.5h1.5M5 16v3h4v-3"/>',
+  puncher: '<rect x="2" y="7" width="6" height="10" rx="1"/><path d="M8 12h7M10 10v4"/><rect x="15" y="8" width="6" height="8" rx="2"/>',
+  tesla: '<circle cx="12" cy="5" r="3"/><path d="M9 21h6M10.5 21l.5-13h2l.5 13M8.5 11h7M8.5 14h7M8.5 17h7M4 4l2 1-1 2 2 1M20 4l-2 1 1 2-2 1"/>',
+  acid: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/><path d="M9.5 15a2.5 2.5 0 0 0 2.5 2.5"/>',
+  laser: '<rect x="1.5" y="4" width="3" height="16" rx="1"/><rect x="19.5" y="4" width="3" height="16" rx="1"/><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/>',
+  orbital: '<rect x="9" y="2.5" width="6" height="5" rx="1"/><path d="M3 4h5M16 4h5M12 7.5v3M12 13v8M8.5 17.5l3.5 3.5 3.5-3.5M8 13.5l-2 1M16 13.5l2 1"/>'
+};
+
+const WEAPONS = [
+  { id: "fists",    name: "Bare Fists",      cost: 10,    dmg: 1,    start: 1, base: "Free", desc: "Standard issue knuckles against unbreakable bones." },
+  { id: "bat",      name: "Spiked Bat",      cost: 50,    dmg: 5,    desc: "A blunt instrument for baseline trauma testing." },
+  { id: "chainsaw", name: "Chainsaw",        cost: 500,   dmg: 25,   desc: "Mounted to an armature; highly effective flesh removal." },
+  { id: "scalpel",  name: "Plasma Scalpel",  cost: 5000,  dmg: 150,  desc: "Cauterizes as it cuts, slowing immediate cell repair." },
+  { id: "cannon",   name: "Particle Cannon", cost: 50000, dmg: 1000, desc: "Vaporizes matter instantly on an atomic level." }
+];
+const GADGETS = [
+  { id: "puncher", name: "Auto-Puncher",   cost: 100,     dps: 2,     desc: "Pneumatic piston ensuring consistent, low-level pain." },
+  { id: "tesla",   name: "Tesla Coil",     cost: 1000,    dps: 10,    desc: "Zaps the subject automatically, testing nervous system limits." },
+  { id: "acid",    name: "Acid Drip",      cost: 7500,    dps: 50,    desc: "Suspended IV bag raining highly corrosive synthetic venom." },
+  { id: "laser",   name: "Laser Grid",     cost: 75000,   dps: 500,   desc: "A shifting web of lasers dicing the subject continuously." },
+  { id: "orbital", name: "Orbital Strike", cost: 1000000, dps: 15000, desc: "Satellite link requesting continuous kinetic bombardment." }
+];
+
+const QUIPS = [
+  "That all you got, doc?", "Tickles.", "I've had worse hangovers.", "Missed a spot.",
+  "You know I can feel that, right?", "Is it lunch yet?", "My insurance does not cover this.",
+  "You're paying for these pants.", "I'm gonna remember your face.", "Grew that back in a second.",
+  "Do you people ever take a break?", "Somebody's getting a strongly worded letter.",
+  "Nice technique. Terrible bedside manner.", "Could you at least warm the table?"
+];
+const REVIVE_QUIPS = ["...again? Seriously?", "Round two.", "Okay. That one hurt.", "Still here.", "Miss me?", "Nope. Not today."];
+
+// ================== STATE ==================
+const SAVE_KEY = "killhank.save.v1";
+const fresh = () => ({ v: 1, dna: 0, totalDna: 0, kills: 0, maxHp: BASE_HP, hp: BASE_HP, w: { fists: 1 }, g: {}, clicks: 0, saved: Date.now(), sound: false, play: 0 });
+let S = fresh();
+
+const lvl = (it, kind) => (kind === "w" ? S.w[it.id] : S.g[it.id]) || 0;
+const clickDmg = () => WEAPONS.reduce((a, w) => a + w.dmg * lvl(w, "w"), 0);
+const autoDps = () => GADGETS.reduce((a, g) => a + g.dps * lvl(g, "g"), 0);
+const regenPerSec = () => S.maxHp * REGEN;
+
+function costOf(it, level, n) {
+  const first = it.cost * Math.pow(COST_GROWTH, level - (it.start || 0));
+  return Math.ceil(first * (Math.pow(COST_GROWTH, n) - 1) / (COST_GROWTH - 1));
+}
+function maxAffordable(it, level) {
+  const first = it.cost * Math.pow(COST_GROWTH, level - (it.start || 0));
+  return Math.max(0, Math.floor(Math.log(S.dna * (COST_GROWTH - 1) / first + 1) / Math.log(COST_GROWTH)));
+}
+
+// ================== FORMATTING ==================
+const UNITS = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+function fmt(n) {
+  n = Math.floor(n);
+  if (n < 1e6) return n.toLocaleString("en-US");
+  const e = Math.min(Math.floor(Math.log10(n) / 3), UNITS.length - 1);
+  return (n / Math.pow(1000, e)).toFixed(2) + UNITS[e];
+}
+function fmtRate(n) { return n < 100 && n % 1 ? n.toFixed(1) : fmt(n); }
+
+// ================== DOM ==================
+const $ = id => document.getElementById(id);
+const app = $("app"), canvas = $("scene"), ctx = canvas.getContext("2d"), stageEl = $("stage");
+const ecg = $("ecg"), ectx = ecg.getContext("2d");
+const ui = {};
+["dna","kills","clickDmg","dps","lifetime","status","hpFill","hpTrail","hpText","regenText","nextHp","bpm","clock","items","log","toast","hpMeter","soundBtn"].forEach(k => ui[k] = $(k));
+
+let tab = "weapons", qty = "1";
+const cache = {};
+function setText(el, key, v) { if (cache[key] !== v) { cache[key] = v; el.textContent = v; } }
+
+// ================== LOG + TOAST ==================
+function clockStr() { const t = Math.floor(S.play); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); }
+function log(msg, cls) {
+  const li = document.createElement("li");
+  if (cls) li.className = cls;
+  const b = document.createElement("b"); b.textContent = clockStr();
+  li.append(b, document.createTextNode(msg));
+  ui.log.prepend(li);
+  while (ui.log.children.length > 40) ui.log.lastChild.remove();
+}
+let toastT = 0;
+function toast(msg) { ui.toast.textContent = msg; ui.toast.hidden = false; toastT = 4; }
+
+// ================== SAVE / LOAD ==================
+function save() {
+  S.saved = Date.now();
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || d.v !== 1) return null;
+    return Object.assign(fresh(), d);
+  } catch (e) { return null; }
+}
+
+// ================== AUDIO (synth, opt-in) ==================
+let ac = null, master = null, noiseBuf = null;
+const lastSfx = {};
+function audioInit() {
+  if (ac) return;
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = 0.35; master.connect(ac.destination);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { ac = null; }
+}
+function sfx(type) {
+  if (!S.sound || !ac) return;
+  const now = ac.currentTime;
+  if (lastSfx[type] && now - lastSfx[type] < (type === "hit" ? 0.04 : 0.09)) return;
+  lastSfx[type] = now;
+  const env = (node, a, d, peak) => { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(peak, now + a); g.gain.exponentialRampToValueAtTime(0.0001, now + a + d); node.connect(g); g.connect(master); return g; };
+  const osc = (t, f1, f2, dur) => { const o = ac.createOscillator(); o.type = t; o.frequency.setValueAtTime(f1, now); o.frequency.exponentialRampToValueAtTime(f2, now + dur); o.start(now); o.stop(now + dur + 0.05); return o; };
+  const noise = (dur, freq, q) => { const s = ac.createBufferSource(); s.buffer = noiseBuf; const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freq; f.Q.value = q || 1; s.connect(f); s.start(now); s.stop(now + dur); return f; };
+  switch (type) {
+    case "hit": env(osc("sine", 140, 45, 0.12), 0.005, 0.12, 0.9); env(noise(0.08, 1800), 0.002, 0.07, 0.5); break;
+    case "slice": env(noise(0.12, 5000, 4), 0.004, 0.1, 0.35); env(osc("sawtooth", 900, 300, 0.1), 0.004, 0.08, 0.08); break;
+    case "zap": env(osc("square", 1600, 240, 0.06), 0.002, 0.06, 0.06); break;
+    case "punch": env(osc("sine", 110, 50, 0.08), 0.003, 0.08, 0.35); break;
+    case "sizzle": env(noise(0.2, 7000, 0.5), 0.02, 0.16, 0.05); break;
+    case "boom": env(noise(0.5, 500), 0.005, 0.45, 0.9); env(osc("sine", 90, 30, 0.4), 0.005, 0.4, 0.8); break;
+    case "kill": env(osc("sawtooth", 400, 40, 0.6), 0.01, 0.6, 0.25); env(noise(0.4, 900), 0.005, 0.35, 0.6); break;
+    case "revive": env(osc("sine", 180, 900, 1.2), 0.05, 1.1, 0.25); env(osc("triangle", 360, 1800, 1.2), 0.05, 1.1, 0.08); break;
+    case "buy": env(osc("square", 660, 660, 0.05), 0.002, 0.05, 0.08); setTimeout(() => sfxRaw(990), 60); break;
+    case "deny": env(osc("square", 160, 120, 0.12), 0.003, 0.12, 0.1); break;
+  }
+}
+function sfxRaw(f) {
+  if (!ac || !S.sound) return;
+  const now = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.type = "square"; o.frequency.value = f; g.gain.setValueAtTime(0.08, now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+  o.connect(g); g.connect(master); o.start(now); o.stop(now + 0.1);
+}
+
+// ================== SCENE GEOMETRY ==================
+// Design space: Hank lies on a table centred at x=300. Fit box is what must always be visible.
+const FIT = { x: 100, y: 40, w: 400, h: 750 };
+let dpr = 1, cw = 0, ch = 0, sc = 1, ox = 0, oy = 0;
+const bg = document.createElement("canvas"), bgx = bg.getContext("2d");
+const fx = document.createElement("canvas"), fxx = fx.getContext("2d");
+
+function mirror(p) { return [600 - p[0], p[1], p[2], 600 - p[3], p[4], p[5]]; }
+const LIMB_L = {
+  upperArm: [236, 236, 22, 222, 330, 18],
+  forearm:  [222, 330, 18, 212, 420, 14],
+  thigh:    [276, 445, 28, 270, 560, 22],
+  shin:     [270, 560, 22, 267, 655, 18],
+  calf:     [267, 640, 16, 265, 688, 14]
+};
+const LIMB_R = Object.fromEntries(Object.entries(LIMB_L).map(([k, v]) => [k, mirror(v)]));
+
+function segDist(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, l = dx * dx + dy * dy;
+  let t = l ? ((px - x1) * dx + (py - y1) * dy) / l : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+function hitHank(x, y) {
+  if (Math.hypot(x - 300, y - 162) < 40) return "head";
+  if (x > 226 && x < 374 && y > 200 && y < 450) return "torso";
+  for (const L of [LIMB_L, LIMB_R]) for (const k in L) {
+    const p = L[k];
+    if (segDist(x, y, p[0], p[1], p[3], p[4]) < Math.max(p[2], p[5]) + 8) return k;
+  }
+  if (Math.hypot(x - 209, y - 440) < 22 || Math.hypot(x - 391, y - 440) < 22) return "hand";
+  if (Math.hypot(x - 264, y - 708) < 24 || Math.hypot(x - 336, y - 708) < 24) return "foot";
+  return null;
+}
+
+function layout() {
+  const ar = app.getBoundingClientRect();
+  const sr = stageEl.getBoundingClientRect();
+  const desktop = window.matchMedia("(min-width: 900px)").matches;
+  const w = ar.width;
+  const h = desktop ? ar.height : (sr.bottom - ar.top + 14);
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.style.width = w + "px"; canvas.style.height = h + "px";
+  cw = canvas.width = Math.round(w * dpr); ch = canvas.height = Math.round(h * dpr);
+  bg.width = fx.width = cw; bg.height = fx.height = ch;
+  const sx = sr.left - ar.left, sy = sr.top - ar.top;
+  sc = Math.min(sr.width / FIT.w, sr.height / FIT.h);
+  ox = sx + (sr.width - FIT.w * sc) / 2 - FIT.x * sc;
+  oy = sy + (sr.height - FIT.h * sc) / 2 - FIT.y * sc;
+  drawBackground();
+}
+function toDesign(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (clientX - r.left - ox) / sc, y: (clientY - r.top - oy) / sc };
+}
+
+// seeded random for static scenery
+function rng(seed) { seed = Math.abs(Math.floor(seed)) % 2147483646 + 1; return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+
+// ================== BACKGROUND (pre-rendered) ==================
+function drawBackground() {
+  const g = bgx;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = "#0d1416"; g.fillRect(0, 0, cw, ch);
+  g.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
+  const x0 = -ox / sc - 20, y0 = -oy / sc - 20, x1 = (cw / dpr - ox) / sc + 20, y1 = (ch / dpr - oy) / sc + 20;
+
+  // floor plates
+  g.fillStyle = "#131c1f"; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+  const P = 100, r = rng(7);
+  for (let x = Math.floor(x0 / P) * P; x < x1; x += P) for (let y = Math.floor(y0 / P) * P; y < y1; y += P) {
+    const shade = 16 + Math.floor(r() * 7);
+    g.fillStyle = `rgb(${shade},${shade + 9},${shade + 12})`;
+    g.fillRect(x + 2, y + 2, P - 4, P - 4);
+    g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(x, y, P, 2); g.fillRect(x, y, 2, P);
+    g.fillStyle = "rgba(255,255,255,.035)"; g.fillRect(x + 2, y + 2, P - 4, 1);
+    g.fillStyle = "#28363b";
+    for (const [a, b] of [[8, 8], [P - 8, 8], [8, P - 8], [P - 8, P - 8]]) { g.beginPath(); g.arc(x + a, y + b, 2.2, 0, 7); g.fill(); }
+    if (r() < 0.18) { // grime
+      const gr = g.createRadialGradient(x + 50, y + 50, 0, x + 50, y + 50, 60);
+      gr.addColorStop(0, "rgba(0,0,0,.28)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(x, y, P, P);
+    }
+  }
+
+  // hazard frame painted on the floor around the table
+  g.save();
+  g.beginPath(); g.rect(132, 48, 336, 742); g.rect(146, 62, 308, 714); g.clip("evenodd");
+  g.fillStyle = "#1a1405"; g.fillRect(132, 48, 336, 742);
+  g.strokeStyle = "rgba(242,176,30,.55)"; g.lineWidth = 9;
+  for (let i = -800; i < 800; i += 24) { g.beginPath(); g.moveTo(132 + i, 48); g.lineTo(132 + i + 742, 790); g.stroke(); }
+  g.restore();
+
+  // cables
+  const rc = rng(42);
+  const cables = [];
+  for (let i = 0; i < 16; i++) {
+    const side = i % 2 ? 1 : -1;
+    const sxp = side < 0 ? 160 : 440, syp = 120 + rc() * 600;
+    const ex = side < 0 ? x0 - 40 : x1 + 40, ey = y0 + rc() * (y1 - y0);
+    cables.push([sxp, syp, sxp + side * (60 + rc() * 120), syp + (rc() - .5) * 300, ex - side * (80 + rc() * 200), ey + (rc() - .5) * 200, ex, ey, 5 + rc() * 9]);
+  }
+  for (const c of cables) {
+    g.lineCap = "round";
+    g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = c[8] + 6;
+    g.beginPath(); g.moveTo(c[0] + 4, c[1] + 6); g.bezierCurveTo(c[2] + 4, c[3] + 6, c[4] + 4, c[5] + 6, c[6], c[7] + 6); g.stroke();
+    g.strokeStyle = "#0a0f11"; g.lineWidth = c[8];
+    g.beginPath(); g.moveTo(c[0], c[1]); g.bezierCurveTo(c[2], c[3], c[4], c[5], c[6], c[7]); g.stroke();
+    g.strokeStyle = "rgba(140,190,200,.09)"; g.lineWidth = Math.max(1.2, c[8] * .25);
+    g.beginPath(); g.moveTo(c[0] - 1, c[1] - 2); g.bezierCurveTo(c[2] - 1, c[3] - 2, c[4] - 1, c[5] - 2, c[6], c[7] - 2); g.stroke();
+  }
+
+  // machinery crates
+  const crates = [[-200, 40, 150, 110], [640, 70, 140, 120], [-230, 560, 170, 120], [650, 600, 150, 130], [-120, 300, 110, 90], [600, 330, 120, 80]];
+  for (const [x, y, w, h] of crates) {
+    g.fillStyle = "rgba(0,0,0,.5)"; g.fillRect(x + 6, y + 8, w, h);
+    const gr = g.createLinearGradient(x, y, x, y + h); gr.addColorStop(0, "#2b3a3f"); gr.addColorStop(1, "#1a2427");
+    g.fillStyle = gr; g.fillRect(x, y, w, h);
+    g.strokeStyle = "#3d5157"; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    g.fillStyle = "#0b1214"; g.fillRect(x + 12, y + 12, w * .45, h * .35);
+    for (let i = 0; i < 4; i++) { g.fillStyle = ["#3fdc86", "#e3262f", "#f2b01e", "#63d5ff"][i]; g.globalAlpha = .8; g.beginPath(); g.arc(x + w - 18 - i * 12, y + 20, 3, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+    g.strokeStyle = "rgba(255,255,255,.06)"; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(x + 12, y + h * .6 + i * 6); g.lineTo(x + w - 12, y + h * .6 + i * 6); g.stroke(); }
+  }
+
+  // vats
+  for (const v of VATS) drawVat(g, v[0], v[1], v[2]);
+
+  // the table
+  drawTable(g);
+}
+const VATS = [[48, 130, 50], [36, 690, 54], [556, 150, 48], [566, 680, 52], [-110, 470, 56], [720, 470, 56], [-40, 860, 44], [650, 880, 44], [-60, -40, 40], [660, -30, 40]];
+function drawVat(g, x, y, r) {
+  g.fillStyle = "rgba(0,0,0,.5)"; g.beginPath(); g.arc(x + 6, y + 9, r + 12, 0, 7); g.fill();
+  const rim = g.createLinearGradient(x - r, y - r, x + r, y + r); rim.addColorStop(0, "#5a6d72"); rim.addColorStop(1, "#1d282b");
+  g.fillStyle = rim; g.beginPath(); g.arc(x, y, r + 10, 0, 7); g.fill();
+  const fl = g.createRadialGradient(x - r * .3, y - r * .3, 2, x, y, r);
+  fl.addColorStop(0, "#d6ff9a"); fl.addColorStop(.35, "#5dff6a"); fl.addColorStop(1, "#0d5a22");
+  g.fillStyle = fl; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  const rb = rng(Math.floor(x * 31 + y));
+  g.fillStyle = "rgba(230,255,200,.45)";
+  for (let i = 0; i < 9; i++) { const a = rb() * 6.28, d = rb() * r * .8; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.5 + rb() * 4, 0, 7); g.fill(); }
+  g.strokeStyle = "rgba(255,255,255,.25)"; g.lineWidth = 3; g.beginPath(); g.arc(x, y, r - 4, 3.6, 4.6); g.stroke();
+  g.fillStyle = "#28363a";
+  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; g.beginPath(); g.arc(x + Math.cos(a) * (r + 5), y + Math.sin(a) * (r + 5), 2.5, 0, 7); g.fill(); }
+}
+function drawTable(g) {
+  g.fillStyle = "rgba(0,0,0,.55)"; roundRect(g, 168, 82, 280, 700, 16); g.fill();
+  const st = g.createLinearGradient(160, 0, 440, 0);
+  st.addColorStop(0, "#56656a"); st.addColorStop(.12, "#8b9a9e"); st.addColorStop(.5, "#6f7e82"); st.addColorStop(.88, "#8a989c"); st.addColorStop(1, "#4b585c");
+  g.fillStyle = st; roundRect(g, 160, 72, 280, 700, 16); g.fill();
+  g.strokeStyle = "#2a3437"; g.lineWidth = 3; roundRect(g, 160, 72, 280, 700, 16); g.stroke();
+  // inner bed
+  const bed = g.createLinearGradient(0, 90, 0, 750); bed.addColorStop(0, "#5d6b6f"); bed.addColorStop(1, "#4a575b");
+  g.fillStyle = bed; roundRect(g, 176, 92, 248, 640, 10); g.fill();
+  g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 2; roundRect(g, 176, 92, 248, 640, 10); g.stroke();
+  // drain grooves
+  g.strokeStyle = "rgba(0,0,0,.18)"; g.lineWidth = 2;
+  for (let y = 120; y < 720; y += 28) { g.beginPath(); g.moveTo(186, y); g.lineTo(196, y); g.moveTo(404, y); g.lineTo(414, y); g.stroke(); }
+  // brushed streaks
+  const rs = rng(99); g.strokeStyle = "rgba(255,255,255,.05)"; g.lineWidth = 1;
+  for (let i = 0; i < 60; i++) { const y = 95 + rs() * 630, x = 180 + rs() * 200; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 20 + rs() * 40, y); g.stroke(); }
+  // old stains
+  for (let i = 0; i < 7; i++) {
+    const x = 190 + rs() * 220, y = 120 + rs() * 600, rr = 8 + rs() * 22;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, "rgba(70,12,14,.35)"); gr.addColorStop(1, "rgba(70,12,14,0)");
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+  }
+  // rivets
+  g.fillStyle = "#3a4649";
+  for (let y = 90; y < 760; y += 45) for (const x of [168, 432]) { g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); }
+  // foot hazard plate
+  g.save(); roundRect(g, 176, 740, 248, 24, 4); g.clip();
+  g.fillStyle = "#151515"; g.fillRect(176, 740, 248, 24);
+  g.strokeStyle = "#e7a71b"; g.lineWidth = 8;
+  for (let x = 150; x < 440; x += 20) { g.beginPath(); g.moveTo(x, 768); g.lineTo(x + 24, 736); g.stroke(); }
+  g.restore();
+  g.fillStyle = "#1d2629"; g.font = "bold 9px monospace"; g.textAlign = "center";
+  g.fillText("UNIT 07 // SUBJECT RESTRAINT", 300, 86);
+}
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+// ================== HANK ==================
+function taper(g, p) {
+  const [x1, y1, r1, x2, y2, r2] = p;
+  const a = Math.atan2(y2 - y1, x2 - x1), px = Math.cos(a + Math.PI / 2), py = Math.sin(a + Math.PI / 2);
+  g.beginPath();
+  g.moveTo(x1 + px * r1, y1 + py * r1); g.lineTo(x2 + px * r2, y2 + py * r2);
+  g.arc(x2, y2, r2, a + Math.PI / 2, a - Math.PI / 2, true);
+  g.lineTo(x1 - px * r1, y1 - py * r1);
+  g.arc(x1, y1, r1, a - Math.PI / 2, a + Math.PI / 2, true);
+  g.closePath(); g.fill();
+}
+function torsoPath(g) {
+  g.beginPath();
+  g.moveTo(240, 212);
+  g.quadraticCurveTo(300, 200, 360, 212);
+  g.bezierCurveTo(382, 222, 378, 262, 366, 290);
+  g.bezierCurveTo(354, 322, 348, 360, 348, 404);
+  g.lineTo(252, 404);
+  g.bezierCurveTo(252, 360, 246, 322, 234, 290);
+  g.bezierCurveTo(222, 262, 218, 222, 240, 212);
+  g.closePath();
+}
+const SKIN = "#c98a63", SKIN_D = "#9a6143", SKIN_L = "#e3ab84", HAIR = "#1c1512", PANTS = "#4b5336", PANTS_D = "#2f3522";
+
+// silhouette only, for hit flashes and the regeneration glow
+function drawSilhouette(g, color) {
+  g.fillStyle = color;
+  for (const L of [LIMB_L, LIMB_R]) for (const k in L) taper(g, L[k]);
+  for (const x of [209, 391]) { g.beginPath(); g.arc(x, 440, 15, 0, 7); g.fill(); }
+  for (const x of [264, 336]) { g.beginPath(); g.ellipse(x, 706, 14, 21, 0, 0, 7); g.fill(); }
+  roundRect(g, 248, 392, 104, 62, 10); g.fill();
+  torsoPath(g); g.fill();
+  g.fillRect(284, 186, 32, 34);
+  g.beginPath(); g.arc(300, 160, 34, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(266, 162, 6, 9, 0, 0, 7); g.ellipse(334, 162, 6, 9, 0, 0, 7); g.fill();
+}
+
+function drawHank(g, t, dmgRatio, pain) {
+  // shadow on the table
+  g.fillStyle = "rgba(0,0,0,.28)";
+  g.save(); g.translate(5, 7); drawSilhouette(g, "rgba(0,0,0,.28)"); g.restore();
+
+  // calves + feet (bare)
+  g.fillStyle = SKIN_D; taper(g, LIMB_L.calf); taper(g, LIMB_R.calf);
+  for (const x of [264, 336]) {
+    g.fillStyle = SKIN; g.beginPath(); g.ellipse(x, 706, 14, 21, 0, 0, 7); g.fill();
+    g.fillStyle = SKIN_L; g.beginPath(); g.ellipse(x - 2, 700, 7, 12, 0, 0, 7); g.fill();
+    g.fillStyle = SKIN_D; for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(x - 9 + i * 4.5, 724 - Math.abs(i - 1) * 1.2, 2.6, 0, 7); g.fill(); }
+  }
+  // trousers
+  const pg = g.createLinearGradient(240, 0, 360, 0); pg.addColorStop(0, PANTS_D); pg.addColorStop(.5, PANTS); pg.addColorStop(1, PANTS_D);
+  g.fillStyle = pg;
+  taper(g, LIMB_L.thigh); taper(g, LIMB_R.thigh); taper(g, LIMB_L.shin); taper(g, LIMB_R.shin);
+  roundRect(g, 248, 392, 104, 62, 10); g.fill();
+  // torn hems
+  g.fillStyle = PANTS_D;
+  for (const x of [267, 333]) { g.beginPath(); g.moveTo(x - 19, 652); for (let i = 0; i <= 8; i++) g.lineTo(x - 19 + i * 4.75, 652 + (i % 2 ? 9 : 2)); g.lineTo(x + 19, 645); g.closePath(); g.fill(); }
+  // creases / pockets
+  g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 2;
+  for (const s of [-1, 1]) {
+    g.beginPath(); g.moveTo(300 + s * 32, 470); g.quadraticCurveTo(300 + s * 40, 520, 300 + s * 30, 560); g.stroke();
+    g.beginPath(); g.moveTo(300 + s * 22, 590); g.lineTo(300 + s * 40, 600); g.stroke();
+    g.beginPath(); g.moveTo(300 + s * 14, 420); g.lineTo(300 + s * 40, 432); g.stroke();
+  }
+  g.beginPath(); g.moveTo(300, 404); g.lineTo(300, 452); g.stroke();
+  // belt
+  g.fillStyle = "#231c16"; g.fillRect(250, 396, 100, 12);
+  g.fillStyle = "#9aa3a5"; g.fillRect(292, 395, 16, 14); g.fillStyle = "#231c16"; g.fillRect(296, 399, 8, 6);
+
+  // arms
+  for (const L of [LIMB_L, LIMB_R]) {
+    g.fillStyle = SKIN; taper(g, L.upperArm);
+    g.fillStyle = SKIN_D; taper(g, L.forearm);
+    g.fillStyle = SKIN; taper(g, [L.forearm[0], L.forearm[1], L.forearm[2] - 4, L.forearm[3], L.forearm[4], L.forearm[5] - 4]);
+    // bicep highlight
+    g.fillStyle = SKIN_L; g.beginPath(); g.ellipse((L.upperArm[0] + L.upperArm[3]) / 2, (L.upperArm[1] + L.upperArm[4]) / 2 - 6, 9, 24, (L.upperArm[0] < 300 ? .15 : -.15), 0, 7); g.fill();
+  }
+  for (const x of [209, 391]) { // fists, clenched
+    g.fillStyle = SKIN_D; g.beginPath(); g.arc(x, 440, 15, 0, 7); g.fill();
+    g.fillStyle = SKIN; g.beginPath(); g.arc(x, 438, 12, 0, 7); g.fill();
+    g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(x - 9, 441 + i * 4); g.lineTo(x + 9, 441 + i * 4); g.stroke(); }
+  }
+
+  // torso
+  const tg = g.createRadialGradient(300, 280, 20, 300, 300, 130);
+  tg.addColorStop(0, SKIN_L); tg.addColorStop(.55, SKIN); tg.addColorStop(1, SKIN_D);
+  g.fillStyle = tg; torsoPath(g); g.fill();
+  // neck + traps
+  g.fillStyle = SKIN_D; g.fillRect(284, 186, 32, 34);
+  g.strokeStyle = "rgba(90,50,30,.45)"; g.lineWidth = 2.2; g.lineCap = "round";
+  g.beginPath(); g.moveTo(284, 212); g.quadraticCurveTo(262, 214, 246, 222); g.moveTo(316, 212); g.quadraticCurveTo(338, 214, 354, 222); g.stroke();
+  // pecs
+  g.beginPath(); g.moveTo(246, 250); g.quadraticCurveTo(268, 292, 298, 270); g.moveTo(354, 250); g.quadraticCurveTo(332, 292, 302, 270); g.stroke();
+  g.fillStyle = "#8a4f36"; g.beginPath(); g.arc(270, 262, 2.6, 0, 7); g.arc(330, 262, 2.6, 0, 7); g.fill();
+  // sternum + abs
+  g.beginPath(); g.moveTo(300, 222); g.lineTo(300, 384); g.stroke();
+  for (const y of [302, 330, 356]) { g.beginPath(); g.moveTo(278, y); g.quadraticCurveTo(289, y + 3, 298, y); g.moveTo(302, y); g.quadraticCurveTo(311, y + 3, 322, y); g.stroke(); }
+  g.beginPath(); g.moveTo(272, 292); g.quadraticCurveTo(270, 340, 280, 392); g.moveTo(328, 292); g.quadraticCurveTo(330, 340, 320, 392); g.stroke();
+  g.fillStyle = "rgba(80,40,25,.6)"; g.beginPath(); g.ellipse(300, 378, 2.5, 3.5, 0, 0, 7); g.fill();
+  // chest hair
+  g.strokeStyle = "rgba(28,21,18,.55)"; g.lineWidth = 1.2;
+  const rh = rng(5);
+  for (let i = 0; i < 46; i++) {
+    const x = 300 + (rh() - .5) * 60 * (1 - Math.abs(rh() - .5)), y = 236 + rh() * 50;
+    const yy = i < 34 ? y : 300 + rh() * 90, xx = i < 34 ? x : 300 + (rh() - .5) * 8;
+    g.beginPath(); g.moveTo(xx, yy); g.lineTo(xx + (rh() - .5) * 4, yy + 3); g.stroke();
+  }
+
+  // head
+  g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(266, 162, 6, 9, 0, 0, 7); g.ellipse(334, 162, 6, 9, 0, 0, 7); g.fill();
+  const hg = g.createRadialGradient(294, 150, 4, 300, 160, 36); hg.addColorStop(0, SKIN_L); hg.addColorStop(1, SKIN_D);
+  g.fillStyle = hg; g.beginPath(); g.arc(300, 160, 34, 0, 7); g.fill();
+  // beard + sideburns
+  g.fillStyle = HAIR;
+  g.beginPath();
+  g.moveTo(267, 150); g.lineTo(264, 168); g.quadraticCurveTo(270, 200, 300, 204); g.quadraticCurveTo(330, 200, 336, 168); g.lineTo(333, 150);
+  g.lineTo(327, 152); g.quadraticCurveTo(326, 176, 316, 182); g.quadraticCurveTo(300, 177, 284, 182); g.quadraticCurveTo(274, 176, 273, 152);
+  g.closePath(); g.fill();
+  // flared hair
+  g.beginPath();
+  g.moveTo(264, 156); g.lineTo(256, 118); g.lineTo(276, 132); g.lineTo(282, 112); g.lineTo(296, 128); g.lineTo(306, 110); g.lineTo(314, 128);
+  g.lineTo(328, 112); g.lineTo(326, 134); g.lineTo(346, 118); g.lineTo(336, 156);
+  g.quadraticCurveTo(330, 140, 300, 140); g.quadraticCurveTo(270, 140, 264, 156);
+  g.closePath(); g.fill();
+  // face
+  const squint = pain > 0;
+  g.strokeStyle = HAIR; g.lineWidth = 3.4; g.lineCap = "round";
+  g.beginPath();
+  if (squint) { g.moveTo(279, 146); g.lineTo(293, 151); g.moveTo(321, 146); g.lineTo(307, 151); }
+  else { g.moveTo(279, 149); g.lineTo(293, 151); g.moveTo(321, 149); g.lineTo(307, 151); }
+  g.stroke();
+  if (squint) {
+    g.lineWidth = 2; g.strokeStyle = "#3a2218";
+    g.beginPath(); g.moveTo(281, 156); g.lineTo(287, 159); g.lineTo(293, 156); g.moveTo(307, 156); g.lineTo(313, 159); g.lineTo(319, 156); g.stroke();
+  } else {
+    g.fillStyle = "#f1e6dc"; g.beginPath(); g.ellipse(287, 157, 5, 3, 0, 0, 7); g.ellipse(313, 157, 5, 3, 0, 0, 7); g.fill();
+    const look = Math.sin(t * .7) * 1.5;
+    g.fillStyle = "#2a1a12"; g.beginPath(); g.arc(287 + look, 157, 2.1, 0, 7); g.arc(313 + look, 157, 2.1, 0, 7); g.fill();
+  }
+  g.strokeStyle = "rgba(90,50,30,.55)"; g.lineWidth = 1.6;
+  g.beginPath(); g.moveTo(300, 157); g.lineTo(298, 170); g.lineTo(303, 171); g.stroke();
+  if (squint) {
+    g.fillStyle = "#3b1210"; roundRect(g, 289, 180, 22, 9, 3); g.fill();
+    g.fillStyle = "#f3eee6"; g.fillRect(291, 181, 18, 3); g.fillRect(291, 186, 18, 2);
+  } else {
+    g.strokeStyle = "#5a2b20"; g.lineWidth = 2.2;
+    g.beginPath(); g.moveTo(290, 184); g.quadraticCurveTo(300, 186, 311, 181); g.stroke();
+  }
+
+  // wounds: seeded bruises appear as HP drops
+  for (let i = 0; i < SCARS.length; i++) {
+    const sc = SCARS[i], on = (dmgRatio - i / SCARS.length) * SCARS.length;
+    if (on <= 0) continue;
+    drawMark(g, sc, Math.min(1, on) * .85);
+  }
+  for (const m of marks) drawMark(g, m, Math.max(0, 1 - m.age / m.life) * (.55 + .45 * dmgRatio));
+
+  // restraints
+  drawCuff(g, 186, 404, 50, 15); drawCuff(g, 364, 404, 50, 15);
+  drawCuff(g, 198, 282, 48, 14); drawCuff(g, 354, 282, 48, 14);
+  drawCuff(g, 238, 520, 64, 15); drawCuff(g, 298, 520, 64, 15);
+  drawCuff(g, 244, 664, 46, 15); drawCuff(g, 310, 664, 46, 15);
+  drawCuff(g, 262, 136, 76, 11);
+}
+function drawCuff(g, x, y, w, h) {
+  const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, "#c3ccce"); gr.addColorStop(.5, "#7e8a8d"); gr.addColorStop(1, "#4b5659");
+  g.fillStyle = "rgba(0,0,0,.35)"; roundRect(g, x + 2, y + 3, w, h, 3); g.fill();
+  g.fillStyle = gr; roundRect(g, x, y, w, h, 3); g.fill();
+  g.strokeStyle = "#2b3437"; g.lineWidth = 1.2; roundRect(g, x, y, w, h, 3); g.stroke();
+  g.fillStyle = "#2b3437"; g.beginPath(); g.arc(x + 5, y + h / 2, 1.8, 0, 7); g.arc(x + w - 5, y + h / 2, 1.8, 0, 7); g.fill();
+  g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(x + 3, y + 2, w - 6, 1.5);
+}
+const SCAR_SPOTS = [[285, 300, "bruise"], [324, 250, "cut"], [252, 320, "bruise"], [310, 350, "cut"], [222, 300, "bruise"], [378, 300, "cut"], [292, 168, "bruise"], [274, 500, "cut"], [330, 560, "bruise"], [214, 380, "cut"], [386, 370, "bruise"], [320, 156, "cut"], [300, 240, "burn"], [262, 600, "bruise"], [346, 330, "burn"], [276, 262, "cut"]];
+const SCARS = SCAR_SPOTS.map(([x, y, type], i) => ({ x, y, type, rot: (i * 1.7) % 3.14, size: 1 + (i % 3) * .25 }));
+
+function drawMark(g, m, a) {
+  if (a <= 0.01) return;
+  g.save(); g.translate(m.x, m.y); g.rotate(m.rot); g.globalAlpha = a;
+  const s = m.size;
+  if (m.type === "bruise") {
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 13 * s);
+    gr.addColorStop(0, "rgba(90,30,70,.85)"); gr.addColorStop(.6, "rgba(120,40,60,.45)"); gr.addColorStop(1, "rgba(120,40,60,0)");
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 13 * s, 9 * s, 0, 0, 7); g.fill();
+  } else if (m.type === "cut") {
+    g.lineCap = "round";
+    g.strokeStyle = "rgba(120,10,15,.55)"; g.lineWidth = 6 * s; g.beginPath(); g.moveTo(-12 * s, 0); g.lineTo(12 * s, 1); g.stroke();
+    g.strokeStyle = "#7d0a10"; g.lineWidth = 2.4 * s; g.beginPath(); g.moveTo(-12 * s, 0); g.lineTo(12 * s, 1); g.stroke();
+    g.fillStyle = "#a3121a"; g.beginPath(); g.ellipse(4 * s, 5 * s, 1.5, 3.5 * s, 0, 0, 7); g.fill();
+  } else if (m.type === "burn") {
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 14 * s);
+    gr.addColorStop(0, "rgba(30,15,10,.9)"); gr.addColorStop(.55, "rgba(120,40,15,.6)"); gr.addColorStop(.8, "rgba(255,140,40,.35)"); gr.addColorStop(1, "rgba(255,140,40,0)");
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 14 * s, 0, 7); g.fill();
+  } else if (m.type === "acid") {
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12 * s);
+    gr.addColorStop(0, "rgba(160,220,40,.8)"); gr.addColorStop(.6, "rgba(90,120,20,.55)"); gr.addColorStop(1, "rgba(90,120,20,0)");
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12 * s, 0, 7); g.fill();
+  }
+  g.restore();
+}
+
+// ================== EFFECTS ==================
+const parts = [], rings = [], bolts = [], pops = [], marks = [];
+let shake = 0, flash = 0, pain = 0, revive = 0, killFlash = 0, bubble = null, bubbleCD = 6;
+function addMark(x, y, type, life) {
+  marks.push({ x, y, type, rot: Math.random() * 3.14, size: .7 + Math.random() * .5, age: 0, life: life || 7 });
+  if (marks.length > 60) marks.shift();
+}
+function burst(x, y, n, color, speed, size, kind) {
+  for (let i = 0; i < n && parts.length < 500; i++) {
+    const a = Math.random() * 6.283, v = speed * (.3 + Math.random());
+    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .4 + Math.random() * .5, age: 0, size: size * (.5 + Math.random()), color, kind: kind || "drop" });
+  }
+}
+function pop(x, y, text, color, size) { pops.push({ x, y, text, color, size: size || 18, age: 0, life: 1.1, vx: (Math.random() - .5) * 30 }); if (pops.length > 80) pops.shift(); }
+function ring(x, y, r, vr, color, w, life) { rings.push({ x, y, r, vr, color, w, age: 0, life: life || .35 }); }
+function say(text, dur) { bubble = { text, age: 0, life: dur || 3 }; log("HANK: " + text, "quip"); }
+
+// ================== ROBOT ARMS ==================
+const arms = [
+  { ax: 118, ay: 470, rest: [228, 330], tip: [228, 330], strike: 0, target: null, side: -1 },
+  { ax: 482, ay: 470, rest: [372, 330], tip: [372, 330], strike: 0, target: null, side: 1 }
+];
+const ARM_L = 200;
+function topWeapon() { for (let i = WEAPONS.length - 1; i >= 0; i--) if (lvl(WEAPONS[i], "w") > 0) return WEAPONS[i].id; return "fists"; }
+function updateArms(dt, t) {
+  for (const a of arms) {
+    let tx = a.rest[0] + Math.sin(t * .9 + a.side) * 14, ty = a.rest[1] + Math.cos(t * .7 + a.side * 2) * 18;
+    if (a.strike > 0) {
+      a.strike -= dt;
+      const p = a.strike > .28 ? 1 - (a.strike - .28) / .1 : a.strike / .28; // fast in, slow out
+      tx = tx + (a.target[0] - tx) * Math.min(1, p); ty = ty + (a.target[1] - ty) * Math.min(1, p);
+    }
+    a.tip[0] = tx; a.tip[1] = ty;
+  }
+}
+function drawArm(g, a, tool) {
+  let [tx, ty] = a.tip;
+  const dx = tx - a.ax, dy = ty - a.ay; let d = Math.hypot(dx, dy);
+  if (d > ARM_L * 2 - 1) { const k = (ARM_L * 2 - 1) / d; tx = a.ax + dx * k; ty = a.ay + dy * k; d = ARM_L * 2 - 1; }
+  const mx = (a.ax + tx) / 2, my = (a.ay + ty) / 2, h = Math.sqrt(Math.max(0, ARM_L * ARM_L - d * d / 4));
+  let nx = -dy / d, ny = dx / d; if (nx * a.side < 0) { nx = -nx; ny = -ny; }
+  const ex = mx + nx * h, ey = my + ny * h;
+  // shadow
+  g.strokeStyle = "rgba(0,0,0,.3)"; g.lineCap = "round"; g.lineWidth = 18;
+  g.beginPath(); g.moveTo(a.ax + 10, a.ay + 14); g.lineTo(ex + 10, ey + 14); g.lineTo(tx + 10, ty + 14); g.stroke();
+  // segments
+  g.strokeStyle = "#2a3336"; g.lineWidth = 18; g.beginPath(); g.moveTo(a.ax, a.ay); g.lineTo(ex, ey); g.stroke();
+  g.strokeStyle = "#d4a321"; g.lineWidth = 12; g.beginPath(); g.moveTo(a.ax, a.ay); g.lineTo(ex, ey); g.stroke();
+  g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 2; g.setLineDash([6, 8]); g.beginPath(); g.moveTo(a.ax, a.ay); g.lineTo(ex, ey); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = "#2a3336"; g.lineWidth = 13; g.beginPath(); g.moveTo(ex, ey); g.lineTo(tx, ty); g.stroke();
+  g.strokeStyle = "#8f9da1"; g.lineWidth = 8; g.beginPath(); g.moveTo(ex, ey); g.lineTo(tx, ty); g.stroke();
+  for (const [x, y, r] of [[a.ax, a.ay, 18], [ex, ey, 11]]) {
+    g.fillStyle = "#1c2326"; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    g.fillStyle = "#56646a"; g.beginPath(); g.arc(x, y, r * .6, 0, 7); g.fill();
+    g.fillStyle = "#e3262f"; g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill();
+  }
+  g.save(); g.translate(tx, ty); g.rotate(Math.atan2(ty - ey, tx - ex)); drawTool(g, tool); g.restore();
+}
+function drawTool(g, tool) {
+  g.fillStyle = "#1c2326"; g.fillRect(-6, -9, 10, 18);
+  switch (tool) {
+    case "fists":
+      g.fillStyle = "#6b777b"; roundRect(g, 2, -11, 22, 22, 6); g.fill();
+      g.fillStyle = "#9aa6aa"; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(22, -8 + i * 5.3, 3, 0, 7); g.fill(); }
+      break;
+    case "bat":
+      g.fillStyle = "#6a4423"; g.beginPath(); g.moveTo(2, -4); g.lineTo(48, -8); g.lineTo(48, 8); g.lineTo(2, 4); g.closePath(); g.fill();
+      g.fillStyle = "#cfd6d8"; for (let i = 0; i < 5; i++) { const x = 26 + i * 5; g.beginPath(); g.moveTo(x, -7); g.lineTo(x + 1.5, -13); g.lineTo(x + 3, -7); g.moveTo(x, 7); g.lineTo(x + 1.5, 13); g.lineTo(x + 3, 7); g.fill(); }
+      break;
+    case "chainsaw":
+      g.fillStyle = "#e0661b"; roundRect(g, 0, -11, 18, 22, 4); g.fill();
+      g.fillStyle = "#9aa6aa"; roundRect(g, 16, -6, 40, 12, 6); g.fill();
+      g.strokeStyle = "#2a3336"; g.lineWidth = 2; g.setLineDash([3, 3]); g.lineDashOffset = -perfT * 60; roundRect(g, 16, -6, 40, 12, 6); g.stroke(); g.setLineDash([]);
+      break;
+    case "scalpel":
+      g.fillStyle = "#56646a"; g.fillRect(0, -4, 24, 8);
+      g.shadowColor = "#ff8a3c"; g.shadowBlur = 12; g.fillStyle = "#ffd6a6";
+      g.beginPath(); g.moveTo(24, -4); g.lineTo(50, 0); g.lineTo(24, 4); g.closePath(); g.fill(); g.shadowBlur = 0;
+      break;
+    case "cannon":
+      g.fillStyle = "#3a4649"; roundRect(g, 0, -12, 26, 24, 4); g.fill();
+      g.fillStyle = "#56646a"; g.fillRect(24, -7, 26, 14);
+      g.shadowColor = "#8f7dff"; g.shadowBlur = 16; g.fillStyle = "#c9c0ff"; g.beginPath(); g.arc(50, 0, 5 + Math.sin(perfT * 12), 0, 7); g.fill(); g.shadowBlur = 0;
+      break;
+  }
+}
+
+// ================== GADGETS ==================
+const gad = { punchPhase: 0, teslaT: 0, acidT: 0, orbT: 0, orbTarget: null, orbState: 0, laserSparkT: 0, passiveAcc: 0, passivePopT: 0 };
+function gadgetTick(dt, t) {
+  const L = id => S.g[id] || 0;
+  const live = revive <= 0;
+  if (L("puncher")) {
+    const P = Math.max(.22, .8 * Math.pow(.92, L("puncher") - 1));
+    const prev = gad.punchPhase; gad.punchPhase = (gad.punchPhase + dt / P) % 1;
+    if (live && prev < .25 && gad.punchPhase >= .25) { ring(260, 300, 4, 120, "rgba(255,255,255,.7)", 3); burst(262, 300, 4, "#a3121a", 70, 2.5); addMark(258 + Math.random() * 10, 292 + Math.random() * 16, "bruise", 5); pain = Math.max(pain, .2); sfx("punch"); }
+  }
+  if (L("tesla")) {
+    gad.teslaT -= dt;
+    if (gad.teslaT <= 0) {
+      gad.teslaT = Math.max(.08, .55 * Math.pow(.9, L("tesla") - 1)) * (.6 + Math.random() * .8);
+      if (live) {
+        const tx = 262 + Math.random() * 76, ty = 228 + Math.random() * 160;
+        bolts.push({ pts: jag(472, 238, tx, ty, 9, 14), age: 0, life: .13, color: "#bfefff" });
+        burst(tx, ty, 5, "#d8f6ff", 120, 1.6, "spark"); pain = Math.max(pain, .15); sfx("zap");
+        if (Math.random() < .3) addMark(tx, ty, "burn", 4);
+      }
+    }
+  }
+  if (L("acid")) {
+    gad.acidT -= dt;
+    if (gad.acidT <= 0) {
+      gad.acidT = Math.max(.12, .5 * Math.pow(.9, L("acid") - 1));
+      if (live) {
+        const x = 332 + (Math.random() - .5) * 26, y = 288 + (Math.random() - .5) * 26;
+        ring(x, y, 2, 40, "rgba(170,255,60,.8)", 2, .4);
+        for (let i = 0; i < 2; i++) parts.push({ x, y, vx: (Math.random() - .5) * 14, vy: -18 - Math.random() * 14, life: 1.1, age: 0, size: 5 + Math.random() * 4, color: "rgba(200,255,150,.35)", kind: "smoke" });
+        if (Math.random() < .5) addMark(x, y, "acid", 5);
+        sfx("sizzle");
+      }
+    }
+  }
+  if (L("laser")) {
+    gad.laserSparkT -= dt;
+    if (live && gad.laserSparkT <= 0) {
+      gad.laserSparkT = .05;
+      const ys = laserYs(t), y = ys[Math.floor(Math.random() * ys.length)];
+      if (y > 140 && y < 720) { const x = 250 + Math.random() * 100; burst(x, y, 2, "#ffb0b0", 90, 1.4, "spark"); if (Math.random() < .08) addMark(x, y, "cut", 4); }
+    }
+  }
+  if (L("orbital")) {
+    const P = Math.max(1.1, 4 / (1 + .12 * (L("orbital") - 1)));
+    gad.orbT += dt;
+    if (gad.orbState === 0 && gad.orbT > P - .7) { gad.orbState = 1; gad.orbTarget = [262 + Math.random() * 76, 230 + Math.random() * 300]; }
+    if (gad.orbState === 1 && gad.orbT >= P) {
+      gad.orbState = 0; gad.orbT = 0;
+      if (live) {
+        const [x, y] = gad.orbTarget;
+        ring(x, y, 10, 520, "rgba(200,240,255,.9)", 6, .45); ring(x, y, 4, 260, "rgba(255,200,120,.8)", 10, .5);
+        bolts.push({ beam: true, x, y, age: 0, life: .32 });
+        burst(x, y, 30, "#a3121a", 260, 3.5); burst(x, y, 20, "#ffe2a8", 300, 2, "spark");
+        addMark(x, y, "burn", 9); shake = Math.max(shake, 10); pain = .8; sfx("boom");
+      }
+    }
+  }
+  // aggregate passive damage numbers
+  gad.passivePopT -= dt;
+  if (gad.passivePopT <= 0 && gad.passiveAcc > 0) {
+    gad.passivePopT = .7;
+    pop(250 + Math.random() * 100, 250 + Math.random() * 150, "-" + fmt(gad.passiveAcc), "#ffb36b", 14);
+    gad.passiveAcc = 0;
+  }
+}
+function laserYs(t) {
+  const n = Math.min(5, 1 + Math.floor((S.g.laser || 0) / 3));
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(425 + Math.sin(t * (.6 + i * .17) + i * 1.9) * 300);
+  return out;
+}
+function jag(x1, y1, x2, y2, n, amp) {
+  const pts = [[x1, y1]];
+  for (let i = 1; i < n; i++) { const k = i / n; pts.push([x1 + (x2 - x1) * k + (Math.random() - .5) * amp * 2, y1 + (y2 - y1) * k + (Math.random() - .5) * amp * 2]); }
+  pts.push([x2, y2]); return pts;
+}
+function drawGadgetsUnder(g, t) {
+  const L = id => S.g[id] || 0;
+  if (L("laser")) {
+    for (const x of [164, 436]) for (let i = 0; i < 6; i++) {
+      g.fillStyle = "#1c2326"; g.fillRect(x - 6, 140 + i * 110, 12, 20);
+      g.fillStyle = "#e3262f"; g.beginPath(); g.arc(x, 150 + i * 110, 3, 0, 7); g.fill();
+    }
+  }
+  if (L("tesla")) {
+    g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.arc(478, 246, 30, 0, 7); g.fill();
+    g.fillStyle = "#2b3437"; g.beginPath(); g.arc(472, 238, 28, 0, 7); g.fill();
+    for (let i = 0; i < 5; i++) { g.strokeStyle = i % 2 ? "#b8682c" : "#e08d45"; g.lineWidth = 3; g.beginPath(); g.arc(472, 238, 24 - i * 4, 0, 7); g.stroke(); }
+    const gl = g.createRadialGradient(472, 238, 0, 472, 238, 24); gl.addColorStop(0, "rgba(220,250,255,1)"); gl.addColorStop(1, "rgba(120,210,255,0)");
+    g.fillStyle = gl; g.globalAlpha = .6 + Math.sin(t * 20) * .3; g.beginPath(); g.arc(472, 238, 24, 0, 7); g.fill(); g.globalAlpha = 1;
+  }
+  if (L("puncher")) {
+    const p = gad.punchPhase, e = p < .25 ? p / .25 : 1 - (p - .25) / .75;
+    const hx = 150 + e * 92;
+    g.fillStyle = "rgba(0,0,0,.4)"; g.fillRect(106, 290, 46, 34);
+    g.fillStyle = "#3a4649"; roundRect(g, 100, 282, 48, 36, 4); g.fill();
+    g.fillStyle = "#e7a71b"; g.fillRect(104, 286, 8, 28);
+    g.fillStyle = "#9aa6aa"; g.fillRect(146, 294, hx - 146, 12);
+    g.fillStyle = "#56646a"; roundRect(g, hx, 286, 22, 28, 5); g.fill();
+    g.fillStyle = "#2a3336"; g.fillRect(hx + 17, 288, 4, 24);
+  }
+}
+function drawGadgetsOver(g, t) {
+  const L = id => S.g[id] || 0;
+  if (L("acid")) {
+    g.strokeStyle = "#2a3336"; g.lineWidth = 8; g.lineCap = "round";
+    g.beginPath(); g.moveTo(530, 60); g.lineTo(440, 170); g.lineTo(358, 262); g.stroke();
+    g.strokeStyle = "rgba(200,255,150,.5)"; g.lineWidth = 2; g.beginPath(); g.moveTo(352, 266); g.lineTo(336, 284); g.stroke();
+    g.save(); g.translate(352, 256); g.rotate(-.7);
+    g.fillStyle = "rgba(210,240,200,.35)"; roundRect(g, -18, -24, 36, 48, 8); g.fill();
+    g.fillStyle = "rgba(120,255,60,.75)"; roundRect(g, -15, -2 - Math.sin(t) * 2, 30, 23, 6); g.fill();
+    g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 1.5; roundRect(g, -18, -24, 36, 48, 8); g.stroke();
+    g.fillStyle = "#e3262f"; g.font = "bold 8px monospace"; g.textAlign = "center"; g.fillText("☣", 0, -10);
+    g.restore();
+  }
+  if (L("laser")) {
+    for (const y of laserYs(t)) {
+      g.strokeStyle = "rgba(255,40,50,.25)"; g.lineWidth = 8; g.beginPath(); g.moveTo(164, y); g.lineTo(436, y); g.stroke();
+      g.strokeStyle = "#ff5a62"; g.lineWidth = 2; g.beginPath(); g.moveTo(164, y); g.lineTo(436, y); g.stroke();
+      g.strokeStyle = "#fff"; g.lineWidth = .8; g.beginPath(); g.moveTo(164, y); g.lineTo(436, y); g.stroke();
+    }
+  }
+  if (L("orbital") && gad.orbState === 1 && gad.orbTarget) {
+    const [x, y] = gad.orbTarget, k = (gad.orbT % 1);
+    g.save(); g.translate(x, y); g.rotate(t * 4);
+    g.strokeStyle = "#ff3b45"; g.lineWidth = 2; g.setLineDash([8, 6]);
+    g.beginPath(); g.arc(0, 0, 34 - k * 10, 0, 7); g.stroke(); g.setLineDash([]);
+    g.beginPath(); for (const a of [0, 1.57, 3.14, 4.71]) { g.moveTo(Math.cos(a) * 18, Math.sin(a) * 18); g.lineTo(Math.cos(a) * 44, Math.sin(a) * 44); } g.stroke();
+    g.restore();
+  }
+}
+
+// ================== INPUT ==================
+let perfT = 0, armIdx = 0;
+const clickTimes = [];
+function strike(x, y) {
+  audioInit();
+  const part = hitHank(x, y);
+  if (!part) { ring(x, y, 3, 60, "rgba(99,213,255,.6)", 1.5, .3); return; }
+  if (revive > 0) { pop(x, y - 10, "REGENERATING", "#3fdc86", 13); return; }
+  const dmg = clickDmg();
+  S.clicks++;
+  clickTimes.push(perfT);
+  const arm = x < 300 ? arms[0] : arms[1];
+  arm.strike = .38; arm.target = [x, y];
+  const tool = topWeapon();
+  setTimeout(() => impactFx(x, y, tool), 70);
+  pop(x, y - 14, "-" + fmt(dmg), "#ffffff", tool === "cannon" ? 24 : 19);
+  damage(dmg);
+  flash = .12; pain = .55;
+  if (!bubble && Math.random() < .015) say(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+}
+function impactFx(x, y, tool) {
+  switch (tool) {
+    case "fists": ring(x, y, 4, 140, "rgba(255,255,255,.85)", 3); burst(x, y, 6, "#a3121a", 120, 2.6); addMark(x, y, "bruise"); shake = Math.max(shake, 2); sfx("hit"); break;
+    case "bat": ring(x, y, 6, 180, "rgba(255,255,255,.9)", 4); burst(x, y, 12, "#a3121a", 170, 3); addMark(x, y, "bruise"); addMark(x + 6, y - 4, "cut"); shake = Math.max(shake, 4); sfx("hit"); break;
+    case "chainsaw": burst(x, y, 14, "#ffb347", 220, 1.6, "spark"); burst(x, y, 16, "#a3121a", 200, 3); addMark(x, y, "cut"); shake = Math.max(shake, 3); sfx("slice"); break;
+    case "scalpel": bolts.push({ slash: true, x, y, a: Math.random() * 3.14, age: 0, life: .25 }); burst(x, y, 10, "#ffcf8a", 160, 1.6, "spark"); addMark(x, y, "burn"); addMark(x, y, "cut"); sfx("slice"); break;
+    case "cannon": bolts.push({ beam: true, x, y, age: 0, life: .2, violet: true }); ring(x, y, 8, 300, "rgba(190,170,255,.9)", 5, .4); burst(x, y, 22, "#a3121a", 260, 3.4); burst(x, y, 14, "#d8ccff", 260, 2, "spark"); addMark(x, y, "burn", 9); shake = Math.max(shake, 7); sfx("boom"); break;
+  }
+}
+function damage(a, passive) {
+  if (revive > 0 || a <= 0) return;
+  S.dna += a; S.totalDna += a; S.hp -= a;
+  if (passive) gad.passiveAcc += a;
+  if (S.hp <= 0) kill();
+}
+function kill() {
+  const bonus = Math.ceil(S.maxHp * KILL_BONUS);
+  S.dna += bonus; S.totalDna += bonus; S.kills++;
+  const old = S.maxHp;
+  S.maxHp = Math.ceil(S.maxHp * REVIVE_MULT);
+  S.hp = 0; revive = REVIVE_TIME; killFlash = 1;
+  marks.length = 0;
+  burst(300, 300, 50, "#a3121a", 320, 4); burst(300, 160, 20, "#a3121a", 260, 3.5);
+  shake = 14; pain = 0;
+  pop(300, 110, "+" + fmt(bonus) + " DNA", "#7fe9ff", 30);
+  log(`Subject flatlined (${fmt(old)} HP). +${fmt(bonus)} DNA bonus. Max HP now ${fmt(S.maxHp)}.`, "kill");
+  sfx("kill"); setTimeout(() => sfx("revive"), 500);
+  bubble = null; bubbleCD = 6;
+  setTimeout(() => say(REVIVE_QUIPS[Math.floor(Math.random() * REVIVE_QUIPS.length)], 2.6), REVIVE_TIME * 1000 + 100);
+  save();
+}
+
+stageEl.addEventListener("pointerdown", e => { e.preventDefault(); const p = toDesign(e.clientX, e.clientY); strike(p.x, p.y); });
+stageEl.addEventListener("keydown", e => {
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; strike(270 + Math.random() * 60, 240 + Math.random() * 140); }
+});
+
+// ================== SHOP ==================
+function renderShop() {
+  const list = tab === "weapons" ? WEAPONS : GADGETS;
+  ui.items.innerHTML = "";
+  list.forEach(it => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.className = "item"; b.dataset.id = it.id;
+    b.innerHTML = `<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[it.id === "puncher" ? "puncher" : it.id]}</svg></span>
+      <span class="meta"><span class="nm-row"><span class="nm"></span><span class="lvl"></span></span><span class="eff"></span><span class="ds"></span><span class="price"></span></span>`;
+    b.addEventListener("click", () => buy(it));
+    li.append(b); ui.items.append(li);
+  });
+  $("qtyHint").textContent = tab === "weapons" ? "Active click upgrades" : "Passive DPS upgrades";
+  updateShop(true);
+}
+function buyCount(it, level) {
+  if (qty === "max") return Math.max(1, maxAffordable(it, level));
+  return Number(qty);
+}
+function updateShop(force) {
+  const kind = tab === "weapons" ? "w" : "g";
+  const list = tab === "weapons" ? WEAPONS : GADGETS;
+  list.forEach((it, i) => {
+    const b = ui.items.querySelector(`[data-id="${it.id}"]`); if (!b) return;
+    const level = lvl(it, kind);
+    const revealed = i === 0 || level > 0 || lvl(list[i - 1], kind) > 0 || S.totalDna >= it.cost * .4;
+    const n = buyCount(it, level), cost = costOf(it, level, n);
+    const can = revealed && S.dna >= cost;
+    const per = kind === "w" ? it.dmg : it.dps;
+    const unit = kind === "w" ? "dmg" : "/sec";
+    const sig = [revealed, level, n, cost, can].join("|");
+    if (!force && b._sig === sig) return;
+    b._sig = sig;
+    b.classList.toggle("locked", !revealed);
+    b.setAttribute("aria-disabled", String(!can));
+    b.querySelector(".nm").textContent = revealed ? it.name : "CLASSIFIED";
+    b.querySelector(".lvl").textContent = level ? "LVL " + level : (it.base ? it.base : "");
+    b.querySelector(".eff").textContent = revealed ? `+${fmt(per)} ${unit} each` + (level ? ` · ${fmt(per * level)} total` : "") : "Clearance pending";
+    b.querySelector(".ds").textContent = revealed ? it.desc : "Harvest more DNA to declassify this hardware.";
+    b.querySelector(".price").textContent = (n > 1 ? `x${n}: ` : "") + fmt(cost) + " DNA";
+    b.setAttribute("aria-label", revealed ? `${it.name}, level ${level}. Buy ${n} for ${fmt(cost)} DNA.` : "Classified item");
+  });
+}
+function buy(it) {
+  const kind = tab === "weapons" ? "w" : "g";
+  const bag = kind === "w" ? S.w : S.g;
+  const level = bag[it.id] || 0;
+  const n = buyCount(it, level), cost = costOf(it, level, n);
+  if (S.dna < cost) { sfx("deny"); return; }
+  S.dna -= cost; bag[it.id] = level + n;
+  audioInit(); sfx("buy");
+  log(`Requisitioned ${it.name}${n > 1 ? " x" + n : ""} → Lvl ${bag[it.id]}.`, "buy");
+  if (level === 0 && kind === "g") toast(`${it.name} mounted. It works while you sleep.`);
+  updateShop(true); save();
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  tab = t.dataset.tab;
+  document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", String(x === t)));
+  renderShop();
+}));
+document.querySelectorAll(".qty button").forEach(bt => bt.addEventListener("click", () => {
+  qty = bt.dataset.q;
+  document.querySelectorAll(".qty button").forEach(x => x.setAttribute("aria-pressed", String(x === bt)));
+  updateShop(true);
+}));
+
+// ================== CONTROLS ==================
+function syncSoundBtn() { ui.soundBtn.setAttribute("aria-pressed", String(!!S.sound)); ui.soundBtn.textContent = S.sound ? "Sound on" : "Sound off"; }
+ui.soundBtn.addEventListener("click", () => { S.sound = !S.sound; if (S.sound) { audioInit(); if (ac && ac.state === "suspended") ac.resume(); sfx("buy"); } syncSoundBtn(); save(); });
+$("resetBtn").addEventListener("click", () => { $("modal").hidden = false; $("cancelReset").focus(); });
+$("cancelReset").addEventListener("click", () => { $("modal").hidden = true; });
+$("confirmReset").addEventListener("click", () => {
+  const snd = S.sound; S = fresh(); S.sound = snd; revive = 0; marks.length = 0;
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  ui.log.innerHTML = ""; log("Research wiped. New subject file opened.", "sys");
+  $("modal").hidden = true; renderShop(); save();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("modal").hidden = true; });
+
+// ================== ECG ==================
+const ecgBuf = new Array(78).fill(0); let ecgPhase = 0, ecgAcc = 0;
+function ecgSample(phase) {
+  if (phase < .08) return Math.sin(phase / .08 * Math.PI) * .12;
+  if (phase < .14) return 0;
+  if (phase < .16) return -.18;
+  if (phase < .19) return 1;
+  if (phase < .22) return -.35;
+  if (phase < .34) return 0;
+  if (phase < .46) return Math.sin((phase - .34) / .12 * Math.PI) * .22;
+  return 0;
+}
+function ecgTick(dt, bpm) {
+  ecgAcc += dt;
+  while (ecgAcc > 1 / 50) {
+    ecgAcc -= 1 / 50;
+    if (revive > REVIVE_TIME * .45) ecgBuf.push(0);
+    else { ecgPhase = (ecgPhase + bpm / 60 / 50) % 1; ecgBuf.push(ecgSample(ecgPhase)); }
+    ecgBuf.shift();
+  }
+  const w = ecg.width, h = ecg.height;
+  ectx.clearRect(0, 0, w, h);
+  ectx.strokeStyle = "rgba(63,220,134,.12)"; ectx.lineWidth = 1;
+  for (let x = 0; x < w; x += 13) { ectx.beginPath(); ectx.moveTo(x, 0); ectx.lineTo(x, h); ectx.stroke(); }
+  ectx.strokeStyle = revive > REVIVE_TIME * .45 ? "#e3262f" : "#3fdc86"; ectx.lineWidth = 2.2;
+  ectx.shadowColor = ectx.strokeStyle; ectx.shadowBlur = 6;
+  ectx.beginPath();
+  ecgBuf.forEach((v, i) => { const x = i / (ecgBuf.length - 1) * w, y = h * .62 - v * h * .5; i ? ectx.lineTo(x, y) : ectx.moveTo(x, y); });
+  ectx.stroke(); ectx.shadowBlur = 0;
+}
+
+// ================== MAIN LOOP ==================
+let last = performance.now(), saveT = 0, shopT = 0, trail = 1;
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  perfT += dt; S.play += dt;
+
+  // simulation
+  if (revive > 0) {
+    revive -= dt;
+    S.hp = S.maxHp * Math.min(1, Math.max(0, 1 - revive / (REVIVE_TIME * .55)));
+    if (revive <= 0) { S.hp = S.maxHp; revive = 0; }
+  } else {
+    damage(autoDps() * dt, true);
+    if (revive <= 0) S.hp = Math.min(S.maxHp, S.hp + regenPerSec() * dt);
+  }
+  gadgetTick(dt, perfT);
+  updateArms(dt, perfT);
+
+  // decay
+  shake = Math.max(0, shake - dt * 40); flash = Math.max(0, flash - dt); pain = Math.max(0, pain - dt); killFlash = Math.max(0, killFlash - dt * 1.4);
+  for (const m of marks) m.age += dt;
+  while (marks.length && marks[0].age > marks[0].life) marks.shift();
+  for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; const drag = p.kind === "smoke" ? .98 : .9; p.vx *= drag; p.vy *= drag; if (p.age > p.life) parts.splice(i, 1); }
+  for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.age += dt; r.r += r.vr * dt; if (r.age > r.life) rings.splice(i, 1); }
+  for (let i = bolts.length - 1; i >= 0; i--) { const b = bolts[i]; b.age += dt; if (b.age > b.life) bolts.splice(i, 1); }
+  for (let i = pops.length - 1; i >= 0; i--) { const p = pops[i]; p.age += dt; p.y -= 40 * dt; p.x += p.vx * dt; if (p.age > p.life) pops.splice(i, 1); }
+  while (clickTimes.length && perfT - clickTimes[0] > 2) clickTimes.shift();
+  if (bubble) { bubble.age += dt; if (bubble.age > bubble.life) { bubble = null; bubbleCD = 9 + Math.random() * 10; } }
+  else if (revive <= 0) { bubbleCD -= dt; if (bubbleCD <= 0) say(QUIPS[Math.floor(Math.random() * QUIPS.length)]); }
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) ui.toast.hidden = true; }
+
+  render(perfT);
+  hud(dt);
+
+  saveT += dt; if (saveT > 5) { saveT = 0; save(); }
+  shopT += dt; if (shopT > .15) { shopT = 0; updateShop(); }
+  requestAnimationFrame(frame);
+}
+
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(bg, 0, 0);
+  const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
+  const T = [dpr * sc, 0, 0, dpr * sc, dpr * (ox + sx * sc), dpr * (oy + sy * sc)];
+  ctx.setTransform(...T);
+
+  // vat glow pulses
+  ctx.globalCompositeOperation = "lighter";
+  for (const [x, y, r] of VATS) {
+    const a = .12 + Math.sin(t * 1.3 + x) * .05;
+    const gr = ctx.createRadialGradient(x, y, r * .5, x, y, r * 2.4);
+    gr.addColorStop(0, `rgba(90,255,110,${a})`); gr.addColorStop(1, "rgba(90,255,110,0)");
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, 7); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  drawGadgetsUnder(ctx, t);
+
+  // Hank (with a little recoil when hurt)
+  const dmgRatio = revive > 0 ? 0 : 1 - S.hp / S.maxHp;
+  ctx.save();
+  if (pain > 0) ctx.translate((Math.random() - .5) * pain * 4, (Math.random() - .5) * pain * 3);
+  drawHank(ctx, t, dmgRatio, pain);
+  ctx.restore();
+
+  // hit flash / regeneration glow (silhouette pass)
+  const tint = flash > 0 ? ["#ff2a2a", flash / .12 * .45] : revive > 0 ? ["#5dff9a", .25 + .35 * Math.sin(Math.min(1, revive / REVIVE_TIME) * Math.PI)] : null;
+  if (tint) {
+    fxx.setTransform(1, 0, 0, 1, 0, 0); fxx.clearRect(0, 0, cw, ch);
+    fxx.setTransform(...T); drawSilhouette(fxx, tint[0]);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = tint[1];
+    if (revive > 0) { ctx.shadowColor = "#5dff9a"; ctx.shadowBlur = 30 * dpr; }
+    ctx.drawImage(fx, 0, 0); ctx.restore();
+  }
+
+  drawGadgetsOver(ctx, t);
+
+  // particles
+  for (const p of parts) {
+    const k = 1 - p.age / p.life;
+    if (p.kind === "smoke") { ctx.globalAlpha = k * .8; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - k), 0, 7); ctx.fill(); }
+    else if (p.kind === "spark") { ctx.globalAlpha = k; ctx.strokeStyle = p.color; ctx.lineWidth = p.size; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * .04, p.y - p.vy * .04); ctx.stroke(); }
+    else { ctx.globalAlpha = Math.min(1, k * 1.5); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+  for (const r of rings) { ctx.globalAlpha = 1 - r.age / r.life; ctx.strokeStyle = r.color; ctx.lineWidth = r.w; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  for (const b of bolts) {
+    const k = 1 - b.age / b.life;
+    if (b.pts) {
+      ctx.globalAlpha = k; ctx.lineJoin = "round";
+      for (const [w, c] of [[7, "rgba(120,210,255,.35)"], [2.2, b.color], [1, "#fff"]]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); b.pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+      }
+    } else if (b.beam) {
+      const w = (b.violet ? 16 : 34) * k;
+      const gr = ctx.createLinearGradient(b.x - w, 0, b.x + w, 0);
+      const c = b.violet ? "180,160,255" : "200,240,255";
+      gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.5, `rgba(255,255,255,${k})`); gr.addColorStop(1, `rgba(${c},0)`);
+      ctx.fillStyle = gr; ctx.fillRect(b.x - w, b.y - 2000, w * 2, 2000);
+      ctx.globalAlpha = k; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b.x, b.y, w * .9, 0, 7); ctx.fill();
+    } else if (b.slash) {
+      ctx.globalAlpha = k; ctx.lineCap = "round";
+      const dx = Math.cos(b.a) * 34, dy = Math.sin(b.a) * 34;
+      ctx.strokeStyle = "rgba(255,140,60,.5)"; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(b.x - dx, b.y - dy); ctx.lineTo(b.x + dx, b.y + dy); ctx.stroke();
+      ctx.strokeStyle = "#fff3dc"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(b.x - dx, b.y - dy); ctx.lineTo(b.x + dx, b.y + dy); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // robot arms on top of everything physical
+  const tool = topWeapon();
+  for (const a of arms) drawArm(ctx, a, tool);
+
+  // damage numbers
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const p of pops) {
+    const k = 1 - p.age / p.life;
+    ctx.globalAlpha = Math.min(1, k * 2);
+    ctx.font = `${p.size}px "Share Tech Mono", ui-monospace, monospace`;
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+
+  // speech bubble
+  if (bubble) {
+    const k = Math.min(1, bubble.age * 6, (bubble.life - bubble.age) * 4);
+    ctx.globalAlpha = Math.max(0, k);
+    ctx.font = '13px "Chakra Petch", system-ui, sans-serif';
+    const tw = Math.min(260, ctx.measureText(bubble.text).width) + 20;
+    const bx = Math.min(492 - tw, 336), by = 62;
+    ctx.fillStyle = "rgba(240,236,220,.95)"; roundRect(ctx, bx, by, tw, 28, 6); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bx + 10, by + 28); ctx.lineTo(bx + 4, by + 44); ctx.lineTo(bx + 24, by + 28); ctx.fill();
+    ctx.fillStyle = "#1a1512"; ctx.textAlign = "left"; ctx.fillText(bubble.text, bx + 10, by + 15, 260);
+    ctx.globalAlpha = 1;
+  }
+
+  // flatline banner
+  if (revive > 0) {
+    ctx.textAlign = "center";
+    const early = revive > REVIVE_TIME * .45;
+    ctx.font = '30px "Black Ops One", Impact, sans-serif';
+    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.85)";
+    const txt = early ? "SUBJECT FLATLINED" : "REGENERATING...";
+    ctx.strokeText(txt, 300, 470); ctx.fillStyle = early ? "#ff3b45" : "#5dff9a"; ctx.fillText(txt, 300, 470);
+    ctx.font = '14px "Share Tech Mono", monospace';
+    const sub = early ? "KILL #" + S.kills + " CONFIRMED" : "MAX HP x1.5 → " + fmt(S.maxHp);
+    ctx.strokeText(sub, 300, 500); ctx.fillStyle = "#e8f4f6"; ctx.fillText(sub, 300, 500);
+  }
+
+  // kill flash over whole canvas
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (killFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${killFlash * .5})`; ctx.fillRect(0, 0, cw, ch); }
+  // scanlines + vignette for the security-cam look
+  const vg = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .35, cw / 2, ch / 2, Math.max(cw, ch) * .75);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, cw, ch);
+}
+
+function hud(dt) {
+  const hp = Math.max(0, S.hp), ratio = hp / S.maxHp;
+  trail += (Math.max(trail > ratio ? ratio : ratio, 0) - trail) * Math.min(1, dt * (trail > ratio ? 2.5 : 20));
+  if (trail < ratio) trail = ratio;
+  ui.hpFill.style.width = (ratio * 100).toFixed(2) + "%";
+  ui.hpTrail.style.width = (trail * 100).toFixed(2) + "%";
+  ui.hpFill.classList.toggle("regen", revive > 0);
+  setText(ui.hpText, "hp", `${fmt(Math.ceil(hp))} / ${fmt(S.maxHp)} HP`);
+  ui.hpMeter.setAttribute("aria-valuemax", S.maxHp); ui.hpMeter.setAttribute("aria-valuenow", Math.ceil(hp));
+  const regen = regenPerSec();
+  setText(ui.regenText, "regen", `+${fmtRate(regen)}/s REGEN`);
+  setText(ui.nextHp, "next", `Next revive: ${fmt(Math.ceil(S.maxHp * REVIVE_MULT))} max HP`);
+  setText(ui.dna, "dna", fmt(S.dna));
+  setText(ui.kills, "kills", fmt(S.kills));
+  const cd = clickDmg(), dps = autoDps();
+  setText(ui.clickDmg, "cd", fmt(cd));
+  setText(ui.dps, "dps", fmt(dps) + "/s");
+  setText(ui.lifetime, "life", fmt(S.totalDna));
+  setText(ui.clock, "clock", clockStr());
+  const cps = clickTimes.length / 2;
+  const out = cd * cps + dps;
+  const winning = out > regen;
+  const st = revive > 0 ? "Subject regenerating" : winning ? `Trauma ${fmtRate(out)}/s > regen` : dps + cd * cps > 0 && cps > 0 ? "Subject out-healing trauma" : dps > 0 ? "Gadgets out-healed. Click or upgrade" : "Click Hank to begin harvesting";
+  setText(ui.status, "status", st);
+  const cls = "status " + (revive > 0 || winning ? "good" : "bad");
+  if (ui.status.className !== cls) ui.status.className = cls;
+  const bpm = Math.round(68 + 110 * (1 - ratio) + Math.min(40, cps * 4));
+  setText(ui.bpm, "bpm", revive > REVIVE_TIME * .45 ? "--- BPM" : bpm + " BPM");
+  ecgTick(dt, bpm);
+}
+
+// ================== BOOT ==================
+function start(data) {
+  const loaded = (data && data.S) || load();
+  if (loaded) S = Object.assign(fresh(), loaded);
+  syncSoundBtn();
+  layout();
+  renderShop();
+  log("Chamber 7 online. Subject H.A.N.K. restrained.", "sys");
+  if (loaded && !(data && data.S)) {
+    const away = Math.min(OFFLINE_CAP, Math.max(0, (Date.now() - (S.saved || Date.now())) / 1000));
+    const gain = Math.floor(autoDps() * away * OFFLINE_RATE);
+    if (gain > 0 && away > 30) {
+      S.dna += gain; S.totalDna += gain;
+      const mins = Math.round(away / 60);
+      toast(`While you were away (${mins} min) the gadgets harvested ${fmt(gain)} DNA.`);
+      log(`Offline harvest: +${fmt(gain)} DNA over ${mins} min.`, "sys");
+    }
+    log(`Research file restored. ${fmt(S.kills)} kills on record.`, "sys");
+  } else if (!loaded) {
+    setTimeout(() => say("Oh good. A new intern."), 900);
+  }
+  if (S.hp <= 0) S.hp = S.maxHp;
+  new ResizeObserver(layout).observe(app);
+  new ResizeObserver(layout).observe(stageEl);
+  window.addEventListener("resize", layout);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { cache.hp = null; });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) save(); else last = performance.now(); });
+  window.addEventListener("pagehide", save);
+  requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
+}
+
+const hot = window.claude && window.claude.hot;
+if (hot && hot.snapshot) hot.snapshot(() => ({ S }));
+if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
