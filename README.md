@@ -11,7 +11,7 @@ The whole game is one file, `index.html`, with no build step. You can:
 
 Your progress saves in the browser's local storage. Gadgets keep harvesting at half speed while you're away, for up to 8 hours.
 
-## How it plays (from the game bible)
+## Core rules (from the game bible)
 
 | Rule | Value |
 | --- | --- |
@@ -21,21 +21,28 @@ Your progress saves in the browser's local storage. Gadgets keep harvesting at h
 | DNA | 1 DNA for every point of damage dealt |
 | Shop prices | ×1.15 per level owned |
 
-**Weapons (click damage):** Bare Fists (1), Spiked Bat (5), Chainsaw (25), Plasma Scalpel (150), Particle Cannon (1,000).
+## Systems
 
-**Gadgets (automatic DPS):** Auto-Puncher (2/s), Tesla Coil (10/s), Acid Drip (50/s), Laser Grid (500/s), Orbital Strike (15,000/s).
-
-If your total damage falls below Hank's regeneration, he out-heals you. Idle and save up, or click harder, until you can afford the next upgrade.
-
-## Features
-
-- Top-down security-camera view of the lab, drawn procedurally on a canvas
-- Robotic arms that swing your best weapon at wherever you click
-- A visible animation for every gadget: piston punches, tesla arcs, acid drips, sweeping lasers and orbital strikes
-- Wounds that build up as his HP drops and fade as he heals
-- Health bar with a live ECG monitor, an incident log, and Hank's running commentary
-- x1 / x10 / MAX bulk buying, with new items unlocking as you earn DNA
-- Optional synthesized sound effects
-- Works on phones: the layout stacks into one column
+- **Weapons (click damage):** Bare Fists, Spiked Bat, Chainsaw, Plasma Scalpel and Particle Cannon from the bible. Gravity Hammer, Antimatter Lance and Singularity Gauntlet come later.
+- **Gadgets (automatic DPS):** Auto-Puncher, Tesla Coil, Acid Drip, Laser Grid and Orbital Strike from the bible. Nanite Swarm, Black Hole Generator and Time Loop Chamber come later.
+- **Milestones:** each item doubles its output at levels 25, 50, 100, 150, 200, 300 and 400.
+- **Research:** one-time projects that unlock as you play. Each item has two upgrades (×2, then ×3). There are also lab-wide projects, such as faster supply drones, a higher combo cap, Cauterization (Scalpel hits halve his regen) and Gene Splicers (+25% DNA).
+- **Combat:**
+  - **Combos:** each fast click in a row adds 1% damage, up to ×2 (×3 with research).
+  - **Crits:** 5% chance for ×5 damage.
+  - **Weak spot:** a glowing reticle that moves around his body. Hitting it deals ×10 damage (×20 with research).
+- **Abilities (keys 1–4):**
+  - Adrenaline: clicks ×5.
+  - Cryo Freeze: stops his regeneration.
+  - Overcharge: gadgets ×4.
+  - Gene Harvest: DNA ×3.
+- **Random events:**
+  - **Supply drones:** fly across the lab. Click one for a DNA cache, Frenzy (clicks ×7) or Overclock (gadgets ×7).
+  - **Escape attempts:** Hank strains against a restraint. Click it in time to earn hazard pay. If you miss it, he punches the camera, fully heals and doubles his regen for 20 seconds.
+  - **Mutations:** every 10th life Hank comes back mutated (Iron Skin, Hyper-Regen, Dead Nerves or Swollen Mass) and pays out ×5 when you kill him.
+- **Clone Protocol (prestige):** reset your run for Mutagen. Each point adds +10% to all damage, permanently.
+- **Achievements:** 38 in total, each worth +2% damage.
+- **Hank evolves:** he grows bone claws at 20 kills, glowing eyes at 50 and glowing veins at 75.
+- **Lab Director hints** guide new players.
 
 All the tuning numbers are constants at the top of the script in `index.html`, so you can rebalance the game there.

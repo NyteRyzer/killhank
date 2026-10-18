@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
 <style>
 /* Layout: full-bleed security-cam canvas of the lab; HUD panels float over it as a tactical overlay
-   (metrics left, health top-centre, requisition terminal right). Stacks to one column on phones. */
+   (metrics + log left, health top-centre, requisition terminal right, abilities under Hank). Stacks on phones. */
 :root {
   color-scheme: dark;
   --bg: #091014;
@@ -23,9 +23,10 @@
   --text: #cfe2e7;
   --muted: #6d8b94;
   --blood: #e3262f;
-  --blood-deep: #4c0b10;
   --regen: #3fdc86;
   --hazard: #f2b01e;
+  --mutagen: #c58bff;
+  --cryo: #8fe3ff;
 
   --f-display: "Black Ops One", Impact, "Arial Black", sans-serif;
   --f-ui: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
@@ -50,7 +51,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   position: relative;
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(290px, 340px);
+  grid-template-columns: minmax(210px, 252px) minmax(0, 1fr) minmax(290px, 344px);
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas: "left hud shop" "left stage shop";
   gap: 14px;
@@ -59,7 +60,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 #scene { position: absolute; left: 0; top: 0; z-index: 0; display: block; }
-.panel, .hud, #stage, .left { position: relative; z-index: 1; }
+.panel, .hud, #stage, .left, .abilities { position: relative; z-index: 1; }
 .left { grid-area: left; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 0; }
 
 .panel {
@@ -79,7 +80,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 }
 .panel-head small { color: var(--muted); letter-spacing: .08em; }
 
-/* ---------- HUD (title + health) ---------- */
+/* ---------- HUD ---------- */
 .hud { grid-area: hud; display: grid; gap: 8px; justify-items: center; align-content: start; min-width: 0; }
 .title {
   margin: 0;
@@ -97,6 +98,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   font-family: var(--f-mono); font-size: 11px; letter-spacing: .2em; color: var(--regen);
   text-transform: uppercase; text-align: center;
 }
+.subtitle b { font-weight: 400; color: var(--hazard); }
 .hp-row { display: flex; align-items: stretch; gap: 10px; width: min(640px, 100%); margin-top: 12px; }
 .hp {
   flex: 1; min-width: 0;
@@ -106,10 +108,12 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   padding: 4px;
   position: relative;
 }
+.hp.mutated { border-color: var(--mutagen); box-shadow: 0 0 14px rgba(197,139,255,.35); }
 .hp-label {
   position: absolute; left: 6px; top: -17px;
   font-family: var(--f-mono); font-size: 11px; letter-spacing: .18em; color: #ff8a8f;
 }
+.hp-label em { font-style: normal; color: var(--mutagen); margin-left: 8px; }
 .hp-track { position: relative; height: 26px; background: #1a0507; overflow: hidden; border-radius: 2px; }
 .hp-trail, .hp-fill { position: absolute; inset: 0 auto 0 0; width: 100%; }
 .hp-trail { background: #f3d6d7; opacity: .75; }
@@ -118,6 +122,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
 }
 .hp-fill.regen { background: linear-gradient(180deg, #7dffb6 0%, var(--regen) 45%, #148a4b 100%); }
+.hp-fill.cryo { background: linear-gradient(180deg, #d8f6ff 0%, #6fc9ef 45%, #2b7aa6 100%); }
 .hp-track::after {
   content: ""; position: absolute; inset: 0;
   background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(0,0,0,.35) 22px 24px);
@@ -140,8 +145,22 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   display: flex; justify-content: space-between; gap: 12px; width: min(640px, 100%);
   font-family: var(--f-mono); font-size: 12px; color: var(--muted);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px #000, 0 0 6px #000, 0 0 10px #000;
 }
 .hp-sub .regen { color: var(--regen); }
+.hp-sub .regen.off { color: var(--cryo); }
+.buffs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: min(640px, 100%); min-height: 22px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  background: rgba(0,0,0,.55); font-variant-numeric: tabular-nums;
+}
+.chip.good { color: var(--regen); border-color: #1d6040; }
+.chip.hot { color: #ffcf6b; border-color: #7a5a14; }
+.chip.cold { color: var(--cryo); border-color: #2b6a86; }
+.chip.bad { color: #ff8a8f; border-color: #6b1d23; }
+.chip.mut { color: var(--mutagen); border-color: #5b3a86; }
 
 /* ---------- Metrics panel ---------- */
 .stats { grid-area: stats; flex: none; }
@@ -159,10 +178,11 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
   text-shadow: 0 0 10px rgba(99,213,255,.5); font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+.dna-box .rate { font-family: var(--f-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 2px; border-bottom: 1px dashed rgba(46,116,137,.35); }
-.stat:last-of-type { border-bottom: 0; }
 .stat .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
 .stat .v { font-family: var(--f-mono); font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+.stat.mg .v, .stat.mg .k { color: var(--mutagen); }
 .status {
   margin-top: 8px; padding: 6px 8px; border-radius: 3px;
   font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; text-align: center;
@@ -171,11 +191,22 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 .status.bad { color: #ff8a8f; border-color: #6b1d23; background: rgba(227,38,47,.12); animation: pulse 1.2s ease-in-out infinite; }
 .status.good { color: var(--regen); border-color: #1d6040; background: rgba(63,220,134,.1); }
 @keyframes pulse { 50% { background: rgba(227,38,47,.24); } }
+.console { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.cbtn {
+  display: grid; justify-items: center; gap: 3px; padding: 7px 4px 6px; cursor: pointer; border-radius: 3px;
+  background: rgba(99,213,255,.06); border: 1px solid var(--line);
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.cbtn svg { width: 18px; height: 18px; color: var(--holo); }
+.cbtn:hover { color: var(--text); border-color: var(--line-hi); }
+.cbtn.ready { color: var(--mutagen); border-color: var(--mutagen); box-shadow: 0 0 12px rgba(197,139,255,.35); animation: glow 1.6s ease-in-out infinite; }
+.cbtn.ready svg { color: var(--mutagen); }
+@keyframes glow { 50% { box-shadow: 0 0 22px rgba(197,139,255,.6); } }
 
 /* ---------- Incident log ---------- */
 .log { grid-area: log; display: flex; flex-direction: column; min-height: 0; }
 .log ol {
-  list-style: none; margin: 0; padding: 8px 12px 10px; overflow-y: auto; min-height: 0; max-height: 230px;
+  list-style: none; margin: 0; padding: 8px 12px 10px; overflow-y: auto; min-height: 0; max-height: 210px;
   font-family: var(--f-mono); font-size: 12px; line-height: 1.45; display: grid; gap: 4px; align-content: start;
 }
 .log li { color: var(--muted); overflow-wrap: anywhere; }
@@ -184,6 +215,8 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 .log li.buy { color: var(--holo); }
 .log li.quip { color: #e8d9a8; }
 .log li.sys { color: var(--regen); }
+.log li.event { color: #ffcf6b; }
+.log li.mut { color: var(--mutagen); }
 .controls { display: flex; gap: 6px; padding: 0 12px 12px; }
 .ctl {
   flex: 1; padding: 7px 8px; border-radius: 3px; cursor: pointer;
@@ -193,21 +226,49 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 .ctl:hover { color: var(--text); border-color: var(--line-hi); }
 .ctl[aria-pressed="true"] { color: var(--holo); border-color: var(--holo-dim); }
 
-/* ---------- Stage (click target) ---------- */
+/* ---------- Stage + abilities ---------- */
 #stage { grid-area: stage; min-height: 0; cursor: crosshair; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.abilities {
+  grid-area: stage; align-self: end; justify-self: center;
+  display: flex; gap: 8px; padding: 6px; margin-bottom: 4px;
+  background: rgba(4,12,15,.8); border: 1px solid var(--line); border-radius: 6px;
+}
+.ab {
+  position: relative; width: 62px; height: 58px; padding: 4px 2px 3px; cursor: pointer; overflow: hidden;
+  display: grid; justify-items: center; align-content: center; gap: 1px;
+  background: linear-gradient(180deg, #123341, #0a1c24); border: 1px solid var(--line-hi); border-radius: 4px;
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--text);
+}
+.ab svg { width: 22px; height: 22px; color: var(--holo); position: relative; }
+.ab span { position: relative; white-space: nowrap; }
+.ab kbd { position: absolute; top: 2px; left: 4px; font-family: var(--f-mono); font-size: 9px; color: var(--muted); }
+.ab::before {
+  content: ""; position: absolute; inset: 0;
+  background: conic-gradient(rgba(0,0,0,.72) calc(var(--p, 0) * 1turn), transparent 0);
+}
+.ab.active { border-color: var(--hazard); box-shadow: 0 0 14px rgba(242,176,30,.55); }
+.ab.active svg { color: var(--hazard); }
+.ab.locked { cursor: not-allowed; color: var(--muted); }
+.ab.locked svg { color: #33505a; }
+.ab .cdn { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; color: #fff; text-shadow: 0 0 4px #000; }
+.ab:hover:not(.locked) { border-color: var(--holo); }
 
 /* ---------- Shop ---------- */
 .shop { grid-area: shop; display: flex; flex-direction: column; min-height: 0; }
-.shop .panel-head { color: var(--holo); }
-.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px 0; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px 12px 0; }
 .tab {
-  padding: 8px 6px; cursor: pointer; border-radius: 3px 3px 0 0;
+  position: relative; padding: 8px 4px; cursor: pointer; border-radius: 3px 3px 0 0;
   background: transparent; border: 1px solid var(--line); border-bottom-color: transparent;
-  font-family: var(--f-ui); font-weight: 600; font-size: 13px; letter-spacing: .12em; color: var(--muted);
+  font-family: var(--f-ui); font-weight: 600; font-size: 12px; letter-spacing: .1em; color: var(--muted);
 }
 .tab[aria-selected="true"] { color: #eaf9ff; background: rgba(99,213,255,.12); border-color: var(--holo-dim); border-bottom-color: transparent; }
-.qty { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--holo-dim); }
-.qty span { font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); margin-right: auto; }
+.badge {
+  position: absolute; top: -7px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  display: grid; place-items: center; background: var(--regen); color: #04170c;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: 0;
+}
+.qty { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--holo-dim); min-height: 43px; }
+.qty span { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; color: var(--muted); margin-right: auto; }
 .qty button {
   min-width: 46px; padding: 4px 8px; cursor: pointer; border-radius: 3px;
   background: transparent; border: 1px solid var(--line);
@@ -228,6 +289,8 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 .item[aria-disabled="true"] .price { color: #a1525a; border-color: #4a1c22; background: rgba(227,38,47,.06); }
 .item.locked .ico { color: #33505a; }
 .item.locked .nm { color: #4f6b74; }
+.item.tier2 .ico { color: var(--mutagen); border-color: #3d2a5c; }
+.item.research .ico { color: var(--hazard); }
 .ico {
   width: 44px; height: 44px; display: grid; place-items: center; border-radius: 3px;
   background: rgba(0,0,0,.35); border: 1px solid var(--line); color: var(--holo);
@@ -238,28 +301,60 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 .nm { font-weight: 700; font-size: 14px; color: #eaf3f5; }
 .lvl { font-family: var(--f-mono); font-size: 11px; color: var(--hazard); white-space: nowrap; }
 .eff { font-family: var(--f-mono); font-size: 12px; color: #ff8a8f; }
+.ms { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.ms i { font-style: normal; display: inline-block; height: 4px; width: 60px; background: #10262e; border-radius: 2px; vertical-align: middle; margin-left: 6px; position: relative; overflow: hidden; }
+.ms i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--m, 0%); background: var(--hazard); }
 .ds { font-size: 12px; line-height: 1.35; color: var(--muted); }
 .price {
   justify-self: start; margin-top: 3px; padding: 3px 8px; border-radius: 3px;
   border: 1px solid #1d6040; background: rgba(63,220,134,.08);
   font-family: var(--f-mono); font-size: 12px; color: var(--regen); font-variant-numeric: tabular-nums;
 }
+.shop-note { font-family: var(--f-mono); font-size: 11px; color: var(--muted); padding: 4px 2px; line-height: 1.5; }
 
-/* ---------- Toast + modal ---------- */
-.toast {
-  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
-  z-index: 5; max-width: calc(100% - 32px);
-  padding: 10px 16px; border-radius: 4px;
-  background: var(--panel-solid); border: 1px solid var(--holo-dim); color: var(--text);
-  font-family: var(--f-mono); font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.6);
+/* ---------- Toasts + modal ---------- */
+.toasts {
+  position: fixed; left: calc(max(16px, env(safe-area-inset-left, 0px)) + 272px); bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 5; width: min(300px, calc(100% - 32px)); display: grid; gap: 8px; pointer-events: none;
 }
-.modal { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.65); padding: 16px; }
-.modal-card { width: min(380px, 100%); padding: 18px; display: grid; gap: 12px; }
+.toast {
+  padding: 10px 14px; border-radius: 4px;
+  background: var(--panel-solid); border: 1px solid var(--holo-dim); color: var(--text);
+  font-family: var(--f-mono); font-size: 13px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,.6);
+  animation: tin .25s ease-out;
+}
+.toast b { font-weight: 400; display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 2px; }
+.toast.director b { color: var(--regen); }
+.toast.ach { border-color: var(--hazard); }
+.toast.ach b { color: var(--hazard); }
+.toast.alert { border-color: var(--blood); }
+.toast.alert b { color: #ff8a8f; }
+.toast.mut { border-color: var(--mutagen); }
+.toast.mut b { color: var(--mutagen); }
+@keyframes tin { from { opacity: 0; transform: translateY(8px); } }
+.modal { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.7); padding: 16px; }
+.modal-card { width: min(560px, 100%); max-height: calc(100% - 32px); padding: 18px; display: grid; gap: 12px; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--panel-solid); }
 .modal-card h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 22px; color: var(--blood); letter-spacing: .04em; }
-.modal-card p { margin: 0; line-height: 1.5; color: var(--text); }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-card h2.mg { color: var(--mutagen); }
+.modal-card h2.gold { color: var(--hazard); }
+.modal-body { overflow-y: auto; min-height: 0; line-height: 1.5; }
+.modal-body p { margin: 0 0 10px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .btn { padding: 8px 14px; border-radius: 3px; cursor: pointer; border: 1px solid var(--line-hi); background: transparent; font-family: var(--f-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
 .btn.danger { border-color: #8a232b; background: rgba(227,38,47,.18); color: #ffb3b6; }
+.btn.mg { border-color: var(--mutagen); background: rgba(197,139,255,.15); color: #e7d3ff; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ach-tile { padding: 8px 10px; border-radius: 4px; border: 1px solid var(--line); background: rgba(0,0,0,.25); }
+.ach-tile b { display: block; font-size: 13px; color: var(--muted); }
+.ach-tile span { font-size: 12px; color: var(--muted); line-height: 1.35; display: block; }
+.ach-tile.got { border-color: #7a5a14; background: rgba(242,176,30,.08); }
+.ach-tile.got b { color: var(--hazard); }
+.ach-tile.got span { color: var(--text); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; font-family: var(--f-mono); font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.big-num { font-family: var(--f-mono); font-size: 34px; color: var(--mutagen); text-shadow: 0 0 14px rgba(197,139,255,.5); }
 
 /* ---------- Phones / narrow ---------- */
 @media (max-width: 899px) {
@@ -271,16 +366,18 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
     grid-template-areas: "hud" "stage" "stats" "shop" "log";
   }
   .left { display: contents; }
-  #stage { height: clamp(340px, 60vh, 600px); }
+  #stage { height: clamp(380px, 64vh, 620px); }
   .stat-list { grid-template-columns: 1fr 1fr; column-gap: 14px; }
-  .dna-box, .status { grid-column: 1 / -1; }
-  .stat:last-of-type { border-bottom: 1px dashed rgba(46,116,137,.35); }
+  .dna-box, .status, .console { grid-column: 1 / -1; }
   .items { overflow: visible; }
   .log ol { max-height: 180px; }
+  .ab { width: 58px; }
+  .toasts { left: 50%; transform: translateX(-50%); bottom: auto; top: calc(10px + env(safe-area-inset-top, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .status.bad { animation: none; }
+  .status.bad, .cbtn.ready { animation: none; }
   .item { transition: none; }
+  .toast { animation: none; }
 }
 </style>
 </head>
@@ -290,10 +387,10 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 
   <header class="hud">
     <h1 class="title">KILL <span>HANK</span></h1>
-    <div class="subtitle">Project Metahuman // Subject H.A.N.K. // Chamber 7</div>
+    <div class="subtitle">Project Metahuman // Subject H.A.N.K. <b id="gen">Gen 1</b> // Chamber 7</div>
     <div class="hp-row">
       <div class="hp" role="meter" aria-label="Hank's health" id="hpMeter" aria-valuemin="0">
-        <div class="hp-label">HANK</div>
+        <div class="hp-label">HANK<em id="mutLabel"></em></div>
         <div class="hp-track">
           <div class="hp-trail" id="hpTrail"></div>
           <div class="hp-fill" id="hpFill"></div>
@@ -306,61 +403,66 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
       </div>
     </div>
     <div class="hp-sub"><span id="nextHp">Next revive: 150 max HP</span><span class="regen" id="regenText">+2/s REGEN</span></div>
+    <div class="buffs" id="buffs" aria-live="polite"></div>
   </header>
 
   <div class="left">
-  <section class="panel stats" aria-label="Lab metrics">
-    <div class="panel-head">Lab metrics <small>Live</small></div>
-    <div class="stat-list">
-      <div class="dna-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12s10 6 10 6M8.5 6.5h7M8.5 17.5h7M9.5 10h5M9.5 14h5"/></svg>
-        <div><div class="k">DNA POINTS</div><div class="v" id="dna">0</div></div>
+    <section class="panel stats" aria-label="Lab metrics">
+      <div class="panel-head">Lab metrics <small>Live</small></div>
+      <div class="stat-list">
+        <div class="dna-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12s10 6 10 6M8.5 6.5h7M8.5 17.5h7M9.5 10h5M9.5 14h5"/></svg>
+          <div><div class="k">DNA POINTS</div><div class="v" id="dna">0</div><div class="rate" id="dnaRate">0 / sec</div></div>
+        </div>
+        <div class="stat"><span class="k">Total kills</span><span class="v" id="kills">0</span></div>
+        <div class="stat"><span class="k">Click damage</span><span class="v" id="clickDmg">1</span></div>
+        <div class="stat"><span class="k">Auto DPS</span><span class="v" id="dps">0</span></div>
+        <div class="stat"><span class="k">Combo</span><span class="v" id="combo">x1.00</span></div>
+        <div class="stat mg" id="mgRow" hidden><span class="k">Mutagen</span><span class="v" id="mutagen">0</span></div>
+        <div class="status bad" id="status">Subject out-healing trauma</div>
+        <div class="console">
+          <button class="cbtn" id="achBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg><span id="achCount">0/0</span></button>
+          <button class="cbtn" id="statsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Stats</span></button>
+          <button class="cbtn" id="cloneBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="16.5" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14 14.5c3.5-.5 7 1.5 7 5"/></svg><span>Clone</span></button>
+        </div>
       </div>
-      <div class="stat"><span class="k">Total kills</span><span class="v" id="kills">0</span></div>
-      <div class="stat"><span class="k">Click damage</span><span class="v" id="clickDmg">1</span></div>
-      <div class="stat"><span class="k">Auto DPS</span><span class="v" id="dps">0</span></div>
-      <div class="stat"><span class="k">Lifetime DNA</span><span class="v" id="lifetime">0</span></div>
-      <div class="status bad" id="status">Subject out-healing trauma</div>
-    </div>
-  </section>
+    </section>
 
-  <section class="panel log" aria-label="Incident log">
-    <div class="panel-head">Incident log <small id="clock">00:00</small></div>
-    <ol id="log" aria-live="polite"></ol>
-    <div class="controls">
-      <button class="ctl" id="soundBtn" aria-pressed="false">Sound off</button>
-      <button class="ctl" id="resetBtn">Wipe data</button>
-    </div>
-  </section>
+    <section class="panel log" aria-label="Incident log">
+      <div class="panel-head">Incident log <small id="clock">00:00</small></div>
+      <ol id="log" aria-live="polite"></ol>
+      <div class="controls">
+        <button class="ctl" id="soundBtn" aria-pressed="false">Sound off</button>
+        <button class="ctl" id="resetBtn">Wipe data</button>
+      </div>
+    </section>
   </div>
 
   <div id="stage" role="button" tabindex="0" aria-label="Hank on the testing table. Click or press Space to strike."></div>
+  <div class="abilities" id="abilities" aria-label="Abilities"></div>
 
   <section class="panel shop" aria-label="Requisition shop">
     <div class="panel-head">Requisition terminal <small>DNA → hardware</small></div>
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" id="tabW" aria-selected="true" data-tab="weapons">WEAPONS</button>
-      <button class="tab" role="tab" id="tabG" aria-selected="false" data-tab="gadgets">GADGETS</button>
+      <button class="tab" role="tab" aria-selected="true" data-tab="weapons">WEAPONS<span class="badge" hidden></span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="gadgets">GADGETS<span class="badge" hidden></span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="research">RESEARCH<span class="badge" hidden></span></button>
     </div>
     <div class="qty"><span id="qtyHint">Active click upgrades</span>
-      <button data-q="1" aria-pressed="true" id="q1">x1</button>
-      <button data-q="10" aria-pressed="false" id="q10">x10</button>
-      <button data-q="max" aria-pressed="false" id="qmax">MAX</button>
+      <button data-q="1" aria-pressed="true">x1</button>
+      <button data-q="10" aria-pressed="false">x10</button>
+      <button data-q="max" aria-pressed="false">MAX</button>
     </div>
     <ul class="items" id="items" role="tabpanel"></ul>
   </section>
-
 </div>
 
-<div class="toast" id="toast" hidden></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="modal" id="modal" hidden>
   <div class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <h2 id="modalTitle">Wipe all research?</h2>
-    <p>This deletes your DNA, kills and every piece of lab hardware. Hank goes back to 100 HP. It cannot be undone.</p>
-    <div class="modal-actions">
-      <button class="btn" id="cancelReset">Keep data</button>
-      <button class="btn danger" id="confirmReset">Wipe it</button>
-    </div>
+    <h2 id="modalTitle"></h2>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
   </div>
 </div>
 
@@ -368,62 +470,166 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--holo);
 (() => {
 "use strict";
 
-// ================== DESIGN NUMBERS (from the game bible) ==================
+// ================== DESIGN NUMBERS (bible values first) ==================
 const BASE_HP = 100;          // Hank starts at 100 HP
 const REGEN = 0.02;           // regenerates 2% of max HP per second
 const REVIVE_MULT = 1.5;      // each revive: max HP x1.5
 const KILL_BONUS = 1.0;       // payout on flatline = this x the max HP just destroyed
 const COST_GROWTH = 1.15;     // price scaling per level owned
-const REVIVE_TIME = 1.6;      // seconds Hank spends regenerating after a kill
-const OFFLINE_RATE = 0.5;     // gadgets keep harvesting at 50% while you're away
+const MILESTONES = [25, 50, 100, 150, 200, 300, 400]; // each one doubles that item's output
+const REVIVE_TIME = 1.6;
+const OFFLINE_RATE = 0.5;
 const OFFLINE_CAP = 8 * 3600;
+const CLONE_MIN = 1e6;        // run DNA needed for the first Mutagen
+const COMBO_WINDOW = 0.8;
 
+const SVG = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const ICONS = {
   fists: '<path d="M7 11V7.5a1.5 1.5 0 0 1 3 0V10M10 10V6.5a1.5 1.5 0 0 1 3 0V10M13 10V7a1.5 1.5 0 0 1 3 0v3.5M16 10.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5.6-3.9L5 13a1.5 1.5 0 0 1 2.6-1.5L9 13.5"/>',
   bat: '<path d="M4 20h2L17 9l-2-2L4 18zM15 7l3-3 2 2-3 3M16 2.5l.8 1.8M21.5 8l-1.8-.8M19.5 2.5l-.8 1.8M21.5 4.5l-1.8.8"/>',
   chainsaw: '<rect x="2.5" y="9" width="7" height="7" rx="1.5"/><path d="M9.5 10.5H20a2 2 0 0 1 0 4H9.5M5 9V6h3.5M12 10.5V9.5M15 10.5V9.5M18 10.5V9.5M12 15.5v-1M15 15.5v-1M18 15.5v-1"/>',
   scalpel: '<path d="M3 21l8.5-8.5M11.5 12.5L19 4c1.2 2.2.3 5.2-3 7.3l-3.5 2.2z"/>',
   cannon: '<rect x="2" y="9" width="9" height="7" rx="2"/><path d="M11 10.5h7v4h-7M18 9v7M20.5 11l1.5-1M20.5 14l1.5 1M21 12.5h1.5M5 16v3h4v-3"/>',
+  hammer: '<path d="M3 21l9.5-9.5"/><path d="M11 6l4-4 7 7-4 4z"/><path d="M13.5 8.5l2 2"/>',
+  lance: '<path d="M3 21l5-5M8 16l1.5-3.5L19 3l2 2-9.5 9.5z"/><path d="M6 13l5 5"/>',
+  gauntlet: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2a10 10 0 0 1 10 10M12 22A10 10 0 0 1 2 12M5 5a9.5 9.5 0 0 1 4.5-2.6M19 19a9.5 9.5 0 0 1-4.5 2.6"/>',
   puncher: '<rect x="2" y="7" width="6" height="10" rx="1"/><path d="M8 12h7M10 10v4"/><rect x="15" y="8" width="6" height="8" rx="2"/>',
   tesla: '<circle cx="12" cy="5" r="3"/><path d="M9 21h6M10.5 21l.5-13h2l.5 13M8.5 11h7M8.5 14h7M8.5 17h7M4 4l2 1-1 2 2 1M20 4l-2 1 1 2-2 1"/>',
   acid: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/><path d="M9.5 15a2.5 2.5 0 0 0 2.5 2.5"/>',
   laser: '<rect x="1.5" y="4" width="3" height="16" rx="1"/><rect x="19.5" y="4" width="3" height="16" rx="1"/><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/>',
-  orbital: '<rect x="9" y="2.5" width="6" height="5" rx="1"/><path d="M3 4h5M16 4h5M12 7.5v3M12 13v8M8.5 17.5l3.5 3.5 3.5-3.5M8 13.5l-2 1M16 13.5l2 1"/>'
+  orbital: '<rect x="9" y="2.5" width="6" height="5" rx="1"/><path d="M3 4h5M16 4h5M12 7.5v3M12 13v8M8.5 17.5l3.5 3.5 3.5-3.5M8 13.5l-2 1M16 13.5l2 1"/>',
+  nanites: '<circle cx="6" cy="6" r="1.4"/><circle cx="12" cy="4.5" r="1.4"/><circle cx="18" cy="7.5" r="1.4"/><circle cx="8.5" cy="12" r="1.4"/><circle cx="15" cy="12.5" r="1.4"/><circle cx="5.5" cy="18" r="1.4"/><circle cx="12" cy="19" r="1.4"/><circle cx="18.5" cy="17" r="1.4"/>',
+  blackhole: '<circle cx="12" cy="12" r="3.5"/><ellipse cx="12" cy="12" rx="10" ry="4"/>',
+  timeloop: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/>',
+  flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 15h9"/>',
+  syringe: '<path d="M18 2l4 4M20 4l-9 9M14 6l4 4M11 13l-5 5-2-2 5-5M4 18l-2 2M9 9l2 2"/>',
+  snow: '<path d="M12 2v20M3.5 7l17 10M20.5 7l-17 10M9 3.5l3 2.5 3-2.5M9 20.5l3-2.5 3 2.5"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  dna: '<path d="M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12s10 6 10 6M8.5 6.5h7M8.5 17.5h7"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
 };
 
 const WEAPONS = [
-  { id: "fists",    name: "Bare Fists",      cost: 10,    dmg: 1,    start: 1, base: "Free", desc: "Standard issue knuckles against unbreakable bones." },
-  { id: "bat",      name: "Spiked Bat",      cost: 50,    dmg: 5,    desc: "A blunt instrument for baseline trauma testing." },
-  { id: "chainsaw", name: "Chainsaw",        cost: 500,   dmg: 25,   desc: "Mounted to an armature; highly effective flesh removal." },
-  { id: "scalpel",  name: "Plasma Scalpel",  cost: 5000,  dmg: 150,  desc: "Cauterizes as it cuts, slowing immediate cell repair." },
-  { id: "cannon",   name: "Particle Cannon", cost: 50000, dmg: 1000, desc: "Vaporizes matter instantly on an atomic level." }
+  { id: "fists",    name: "Bare Fists",          cost: 10,       dmg: 1,        start: 1, base: "Free", desc: "Standard issue knuckles against unbreakable bones.", up: ["Brass Knuckles", "Bone-Breaker Wraps"] },
+  { id: "bat",      name: "Spiked Bat",          cost: 50,       dmg: 5,        desc: "A blunt instrument for baseline trauma testing.", up: ["Rusty Nails", "Barbed Wire Wrap"] },
+  { id: "chainsaw", name: "Chainsaw",            cost: 500,      dmg: 25,       desc: "Mounted to an armature; highly effective flesh removal.", up: ["Serrated Chain", "Twin-Bar Rig"] },
+  { id: "scalpel",  name: "Plasma Scalpel",      cost: 5000,     dmg: 150,      desc: "Cauterizes as it cuts, slowing immediate cell repair.", up: ["Focusing Lens", "Monomolecular Edge"] },
+  { id: "cannon",   name: "Particle Cannon",     cost: 50000,    dmg: 1000,     desc: "Vaporizes matter instantly on an atomic level.", up: ["Particle Accelerator", "Positron Overdrive"] },
+  { id: "hammer",   name: "Gravity Hammer",      cost: 750000,   dmg: 7500,     tier2: true, desc: "Hits with the weight of a small moon. Leaves a crater in the table.", up: ["Dense Core", "Event Horizon Head"] },
+  { id: "lance",    name: "Antimatter Lance",    cost: 12e6,     dmg: 90000,    tier2: true, desc: "One gram of antimatter on a stick. Do not drop.", up: ["Antiproton Tip", "Annihilation Coil"] },
+  { id: "gauntlet", name: "Singularity Gauntlet", cost: 300e6,   dmg: 1.6e6,    tier2: true, desc: "Collapses a fist-sized region of Hank into a point.", up: ["Gravitic Fingers", "Collapse Protocol"] }
 ];
 const GADGETS = [
-  { id: "puncher", name: "Auto-Puncher",   cost: 100,     dps: 2,     desc: "Pneumatic piston ensuring consistent, low-level pain." },
-  { id: "tesla",   name: "Tesla Coil",     cost: 1000,    dps: 10,    desc: "Zaps the subject automatically, testing nervous system limits." },
-  { id: "acid",    name: "Acid Drip",      cost: 7500,    dps: 50,    desc: "Suspended IV bag raining highly corrosive synthetic venom." },
-  { id: "laser",   name: "Laser Grid",     cost: 75000,   dps: 500,   desc: "A shifting web of lasers dicing the subject continuously." },
-  { id: "orbital", name: "Orbital Strike", cost: 1000000, dps: 15000, desc: "Satellite link requesting continuous kinetic bombardment." }
+  { id: "puncher",   name: "Auto-Puncher",         cost: 100,     dps: 2,       desc: "Pneumatic piston ensuring consistent, low-level pain.", up: ["Hydraulic Upgrade", "Jackhammer Mode"] },
+  { id: "tesla",     name: "Tesla Coil",           cost: 1000,    dps: 10,      desc: "Zaps the subject automatically, testing nervous system limits.", up: ["Overclocked Coils", "Ball Lightning"] },
+  { id: "acid",      name: "Acid Drip",            cost: 7500,    dps: 50,      desc: "Suspended IV bag raining highly corrosive synthetic venom.", up: ["Concentrated Venom", "Hydrofluoric Blend"] },
+  { id: "laser",     name: "Laser Grid",           cost: 75000,   dps: 500,     desc: "A shifting web of lasers dicing the subject continuously.", up: ["Prismatic Splitter", "Hyperfocus Array"] },
+  { id: "orbital",   name: "Orbital Strike",       cost: 1e6,     dps: 15000,   desc: "Satellite link requesting continuous kinetic bombardment.", up: ["Tungsten Rods", "Second Satellite"] },
+  { id: "nanites",   name: "Nanite Swarm",         cost: 20e6,    dps: 220000,  tier2: true, desc: "Ten billion microscopic machines that only know how to bite.", up: ["Self-Replication", "Hunger Directive"] },
+  { id: "blackhole", name: "Black Hole Generator", cost: 600e6,   dps: 4.5e6,   tier2: true, desc: "A pocket singularity parked a foot above his knees.", up: ["Hawking Amplifier", "Spaghettification"] },
+  { id: "timeloop",  name: "Time Loop Chamber",    cost: 20e9,    dps: 90e6,    tier2: true, desc: "Hank relives the worst second of his life. Forever.", up: ["Paradox Engine", "Infinite Monday"] }
 ];
+const ALL_ITEMS = WEAPONS.map(w => [w, "w"]).concat(GADGETS.map(g => [g, "g"]));
+
+// Research: two upgrades per item, plus lab-wide projects
+const RESEARCH = [];
+for (const [it, kind] of ALL_ITEMS) {
+  RESEARCH.push({ id: it.id + "1", name: it.up[0], icon: it.id, cost: Math.max(100, it.cost * 20), desc: `${it.name} output x2.`, req: () => lvlOf(it, kind) >= 10, reqText: `${it.name} Lvl 10` });
+  RESEARCH.push({ id: it.id + "2", name: it.up[1], icon: it.id, cost: Math.max(1000, it.cost * 500), desc: `${it.name} output x3.`, req: () => lvlOf(it, kind) >= 40, reqText: `${it.name} Lvl 40` });
+}
+RESEARCH.push(
+  { id: "bloodlust", name: "Bloodlust Protocol", icon: "syringe", cost: 2500, desc: "Combo cap raised from x2 to x3.", req: () => S.stats.maxCombo >= 50, reqText: "Reach a 50-hit combo" },
+  { id: "weakspot",  name: "Weak Spot Analysis", icon: "flask", cost: 15000, desc: "Weak spot hits deal x20 instead of x10.", req: () => S.stats.weak >= 10, reqText: "Hit 10 weak spots" },
+  { id: "neural",    name: "Neural Mapping",     icon: "flask", cost: 120000, desc: "Critical hit chance 5% → 12%.", req: () => S.stats.crits >= 100, reqText: "Land 100 crits" },
+  { id: "cauter",    name: "Cauterization",      icon: "scalpel", cost: 60000, desc: "Plasma Scalpel hits halve Hank's regeneration for 2 seconds.", req: () => (S.w.scalpel || 0) > 0, reqText: "Own a Plasma Scalpel" },
+  { id: "restraint", name: "Reinforced Restraints", icon: "lock", cost: 40000, desc: "Escape attempts last longer and need 3 clicks to stop, not 5.", req: () => S.stats.escAttempts >= 1, reqText: "Survive an escape attempt" },
+  { id: "supply",    name: "Supply Chain",       icon: "flask", cost: 250000, desc: "Supply drones arrive twice as often.", req: () => S.stats.drops >= 3, reqText: "Catch 3 supply drones" },
+  { id: "siphon",    name: "Adrenal Siphon",     icon: "syringe", cost: 400000, desc: "Every click also deals 3% of your auto DPS.", req: () => baseDps() > 0 && S.kills >= 15, reqText: "15 kills with a gadget running" },
+  { id: "splice1",   name: "Gene Splicer",       icon: "dna", cost: 1e6, desc: "+25% DNA from every source.", req: () => S.kills >= 20, reqText: "20 kills this run" },
+  { id: "vats",      name: "Clone Vats",         icon: "dna", cost: 8e6, desc: "Flatline payouts doubled.", req: () => S.kills >= 28, reqText: "28 kills this run" },
+  { id: "cryo2",     name: "Liquid Nitrogen",    icon: "snow", cost: 30e6, desc: "Cryo Freeze lasts 20 seconds instead of 12.", req: () => S.stats.abilities >= 10, reqText: "Use 10 abilities" },
+  { id: "splice2",   name: "Gene Splicer II",    icon: "dna", cost: 2e9, desc: "Another +25% DNA from every source.", req: () => S.kills >= 40, reqText: "40 kills this run" },
+  { id: "splice3",   name: "Gene Splicer III",   icon: "dna", cost: 5e11, desc: "Another +25% DNA from every source.", req: () => S.kills >= 55, reqText: "55 kills this run" }
+);
+
+const ABILITIES = [
+  { id: "adrenaline", name: "Adrenaline", icon: "syringe", key: "1", dur: 10, cd: 60,  desc: "Click damage x5 for 10s", unlock: () => S.stats.kills >= 3, unlockText: "Unlocks at 3 kills" },
+  { id: "cryo",       name: "Cryo",       icon: "snow",    key: "2", dur: 12, cd: 90,  desc: "Freezes his regeneration", unlock: () => S.stats.kills >= 8, unlockText: "Unlocks at 8 kills" },
+  { id: "overcharge", name: "Overcharge", icon: "bolt",    key: "3", dur: 15, cd: 120, desc: "Gadget DPS x4 for 15s", unlock: () => S.stats.kills >= 15 && baseDps() > 0, unlockText: "Unlocks at 15 kills + a gadget" },
+  { id: "harvest",    name: "Harvest",    icon: "dna",     key: "4", dur: 12, cd: 180, desc: "All DNA gains x3 for 12s", unlock: () => S.stats.kills >= 25, unlockText: "Unlocks at 25 kills" }
+];
+
+const MUTATIONS = {
+  iron:  { name: "Iron Skin",    desc: "Click damage halved", skin: ["#9aa4a8", "#6b767b", "#c9d1d4"] },
+  regen: { name: "Hyper-Regen",  desc: "Regeneration x2.5", skin: ["#c98a63", "#9a6143", "#e3ab84"] },
+  nerve: { name: "Dead Nerves",  desc: "Gadget damage x0.4", skin: ["#a9b9c4", "#7a8a96", "#cfdbe3"] },
+  giant: { name: "Swollen Mass", desc: "Double max HP this life", skin: ["#d28a6e", "#a15d45", "#eaa98c"] }
+};
 
 const QUIPS = [
   "That all you got, doc?", "Tickles.", "I've had worse hangovers.", "Missed a spot.",
   "You know I can feel that, right?", "Is it lunch yet?", "My insurance does not cover this.",
   "You're paying for these pants.", "I'm gonna remember your face.", "Grew that back in a second.",
   "Do you people ever take a break?", "Somebody's getting a strongly worded letter.",
-  "Nice technique. Terrible bedside manner.", "Could you at least warm the table?"
+  "Nice technique. Terrible bedside manner.", "Could you at least warm the table?",
+  "Is this about the parking spot?", "I'd clap, but, you know.", "Five stars. Would not recommend.",
+  "Every day it's the same thing with you."
 ];
-const REVIVE_QUIPS = ["...again? Seriously?", "Round two.", "Okay. That one hurt.", "Still here.", "Miss me?", "Nope. Not today."];
+const REVIVE_QUIPS = ["...again? Seriously?", "Round two.", "Okay. That one hurt.", "Still here.", "Miss me?", "Nope. Not today.", "I saw a light. It was your lamp.", "Death is a lot like Tuesday."];
+const BUY_QUIPS = {
+  bat: "Is that a nail in that bat?", chainsaw: "Is that a chainsaw? Is that a CHAINSAW?", scalpel: "Glowing knives now. Great.",
+  cannon: "Oh come on, that's a cannon.", hammer: "That hammer has its own gravity.", lance: "Please don't drop that.",
+  gauntlet: "That glove is making the room bend.", puncher: "A punching robot. Original.", tesla: "I can taste purple.",
+  acid: "Is that bag hissing?", laser: "Pew pew. Very mature.", orbital: "You called in a SATELLITE?",
+  nanites: "Something's crawling on me.", blackhole: "Is there a hole in the ceiling?", timeloop: "Didn't I already say this?"
+};
 
 // ================== STATE ==================
 const SAVE_KEY = "killhank.save.v1";
-const fresh = () => ({ v: 1, dna: 0, totalDna: 0, kills: 0, maxHp: BASE_HP, hp: BASE_HP, w: { fists: 1 }, g: {}, clicks: 0, saved: Date.now(), sound: false, play: 0 });
+const freshStats = () => ({ kills: 0, clicks: 0, crits: 0, weak: 0, maxCombo: 0, drops: 0, escapes: 0, escAttempts: 0, escFail: 0, mutKills: 0, prestiges: 0, totalDna: 0, play: 0, abilities: 0, bestHp: BASE_HP });
+const fresh = () => ({
+  v: 2, dna: 0, runDna: 0, totalDna: 0, kills: 0, maxHp: BASE_HP, hp: BASE_HP,
+  w: { fists: 1 }, g: {}, r: {}, mut: null, mutagen: 0,
+  buffs: {}, cd: {}, ach: {}, hints: {}, stats: freshStats(),
+  saved: Date.now(), sound: false, play: 0, run: 0
+});
 let S = fresh();
 
-const lvl = (it, kind) => (kind === "w" ? S.w[it.id] : S.g[it.id]) || 0;
-const clickDmg = () => WEAPONS.reduce((a, w) => a + w.dmg * lvl(w, "w"), 0);
-const autoDps = () => GADGETS.reduce((a, g) => a + g.dps * lvl(g, "g"), 0);
-const regenPerSec = () => S.maxHp * REGEN;
+const lvlOf = (it, kind) => (kind === "w" ? S.w[it.id] : S.g[it.id]) || 0;
+const has = id => !!S.r[id];
+const buffOn = id => (S.buffs[id] || 0) > 0;
+const achCount = () => Object.keys(S.ach).length;
+const curMax = () => S.maxHp * (S.mut === "giant" ? 2 : 1);
+
+function itemMult(it, kind) {
+  const L = lvlOf(it, kind);
+  let m = 1;
+  for (const ms of MILESTONES) if (L >= ms) m *= 2;
+  if (S.r[it.id + "1"]) m *= 2;
+  if (S.r[it.id + "2"]) m *= 3;
+  return m;
+}
+const globalMult = () => (1 + 0.1 * S.mutagen) * (1 + 0.02 * achCount());
+const baseClick = () => WEAPONS.reduce((a, w) => a + w.dmg * lvlOf(w, "w") * itemMult(w, "w"), 0);
+const baseDps = () => GADGETS.reduce((a, g) => a + g.dps * lvlOf(g, "g") * itemMult(g, "g"), 0);
+const dpsMult = () => globalMult() * (buffOn("overcharge") ? 4 : 1) * (buffOn("overclock") ? 7 : 1) * (S.mut === "nerve" ? 0.4 : 1);
+const autoDps = () => baseDps() * dpsMult();
+let combo = 0, lastClick = -9;
+const comboCap = () => has("bloodlust") ? 200 : 100;
+const comboMult = () => 1 + Math.min(combo, comboCap()) * 0.01;
+const clickMult = () => globalMult() * (buffOn("adrenaline") ? 5 : 1) * (buffOn("frenzy") ? 7 : 1) * comboMult() * (S.mut === "iron" ? 0.5 : 1);
+const clickDmg = () => (baseClick() + (has("siphon") ? baseDps() * dpsMult() * 0.03 : 0)) * clickMult();
+const dnaMult = () => Math.pow(1.25, (has("splice1") ? 1 : 0) + (has("splice2") ? 1 : 0) + (has("splice3") ? 1 : 0)) * (buffOn("harvest") ? 3 : 1);
+let cauterUntil = 0;
+function regenMult() {
+  if (buffOn("cryo")) return 0;
+  return (buffOn("enraged") ? 2 : 1) * (S.mut === "regen" ? 2.5 : 1) * (perfT < cauterUntil ? 0.5 : 1);
+}
+const regenPerSec = () => curMax() * REGEN * regenMult();
+const critChance = () => has("neural") ? 0.12 : 0.05;
+// rough DNA/sec at a casual 4 clicks/sec, used to size event rewards
+const income = () => Math.max(5, baseDps() * globalMult() + baseClick() * globalMult() * 4);
+const cloneGain = () => Math.floor(Math.sqrt(S.runDna / CLONE_MIN));
 
 function costOf(it, level, n) {
   const first = it.cost * Math.pow(COST_GROWTH, level - (it.start || 0));
@@ -435,27 +641,34 @@ function maxAffordable(it, level) {
 }
 
 // ================== FORMATTING ==================
-const UNITS = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+const UNITS = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd", "Td"];
 function fmt(n) {
+  if (!isFinite(n)) return "∞";
   n = Math.floor(n);
   if (n < 1e6) return n.toLocaleString("en-US");
   const e = Math.min(Math.floor(Math.log10(n) / 3), UNITS.length - 1);
   return (n / Math.pow(1000, e)).toFixed(2) + UNITS[e];
 }
 function fmtRate(n) { return n < 100 && n % 1 ? n.toFixed(1) : fmt(n); }
+function fmtTime(s) {
+  s = Math.floor(s);
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60;
+  return (h ? h + "h " : "") + String(m).padStart(h ? 2 : 1, "0") + "m " + String(x).padStart(2, "0") + "s";
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ================== DOM ==================
 const $ = id => document.getElementById(id);
 const app = $("app"), canvas = $("scene"), ctx = canvas.getContext("2d"), stageEl = $("stage");
 const ecg = $("ecg"), ectx = ecg.getContext("2d");
 const ui = {};
-["dna","kills","clickDmg","dps","lifetime","status","hpFill","hpTrail","hpText","regenText","nextHp","bpm","clock","items","log","toast","hpMeter","soundBtn"].forEach(k => ui[k] = $(k));
+["dna", "dnaRate", "kills", "clickDmg", "dps", "combo", "mutagen", "mgRow", "status", "hpFill", "hpTrail", "hpText", "regenText", "nextHp", "bpm", "clock", "items", "log", "toasts", "hpMeter", "soundBtn", "buffs", "mutLabel", "gen", "achCount", "cloneBtn", "abilities", "qtyHint"].forEach(k => ui[k] = $(k));
 
 let tab = "weapons", qty = "1";
 const cache = {};
 function setText(el, key, v) { if (cache[key] !== v) { cache[key] = v; el.textContent = v; } }
 
-// ================== LOG + TOAST ==================
+// ================== LOG + TOASTS + MODAL ==================
 function clockStr() { const t = Math.floor(S.play); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); }
 function log(msg, cls) {
   const li = document.createElement("li");
@@ -463,28 +676,55 @@ function log(msg, cls) {
   const b = document.createElement("b"); b.textContent = clockStr();
   li.append(b, document.createTextNode(msg));
   ui.log.prepend(li);
-  while (ui.log.children.length > 40) ui.log.lastChild.remove();
+  while (ui.log.children.length > 50) ui.log.lastChild.remove();
 }
-let toastT = 0;
-function toast(msg) { ui.toast.textContent = msg; ui.toast.hidden = false; toastT = 4; }
+function toast(msg, kind, title) {
+  const d = document.createElement("div");
+  d.className = "toast " + (kind || "");
+  if (title) { const b = document.createElement("b"); b.textContent = title; d.append(b); }
+  d.append(document.createTextNode(msg));
+  ui.toasts.append(d);
+  while (ui.toasts.children.length > 2) ui.toasts.firstChild.remove();
+  setTimeout(() => d.remove(), kind === "director" ? 6500 : 4500);
+}
+const modal = $("modal");
+function openModal(title, html, actions, cls) {
+  const h = $("modalTitle"); h.textContent = title; h.className = cls || "";
+  $("modalBody").innerHTML = html;
+  const box = $("modalActions"); box.innerHTML = "";
+  for (const a of actions) {
+    const b = document.createElement("button");
+    b.className = "btn " + (a.cls || ""); b.textContent = a.label;
+    if (a.disabled) b.disabled = true;
+    b.addEventListener("click", () => { if (a.fn) a.fn(); if (!a.keep) closeModal(); });
+    box.append(b);
+  }
+  modal.hidden = false;
+  const first = box.querySelector("button:not([disabled])"); if (first) first.focus();
+}
+function closeModal() { modal.hidden = true; stageEl.focus({ preventScroll: true }); }
+modal.addEventListener("pointerdown", e => { if (e.target === modal) closeModal(); });
 
 // ================== SAVE / LOAD ==================
 function save() {
   S.saved = Date.now();
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
 }
+function hydrate(d) {
+  if (!d || (d.v !== 1 && d.v !== 2)) return null;
+  const s = Object.assign(fresh(), d);
+  s.stats = Object.assign(freshStats(), d.stats || {});
+  if (d.v === 1) { s.runDna = d.totalDna || 0; s.stats.totalDna = d.totalDna || 0; s.stats.kills = d.kills || 0; s.stats.clicks = d.clicks || 0; s.v = 2; }
+  for (const k of ["w", "g", "r", "buffs", "cd", "ach", "hints"]) s[k] = Object.assign({}, s[k] || {});
+  if (!s.w.fists) s.w.fists = 1;
+  return s;
+}
 function load() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const d = JSON.parse(raw);
-    if (!d || d.v !== 1) return null;
-    return Object.assign(fresh(), d);
-  } catch (e) { return null; }
+  try { const raw = localStorage.getItem(SAVE_KEY); return raw ? hydrate(JSON.parse(raw)) : null; } catch (e) { return null; }
 }
 
 // ================== AUDIO (synth, opt-in) ==================
-let ac = null, master = null, noiseBuf = null;
+let ac = null, master = null, noiseBuf = null, hum = null;
 const lastSfx = {};
 function audioInit() {
   if (ac) return;
@@ -496,16 +736,33 @@ function audioInit() {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   } catch (e) { ac = null; }
 }
+function setHum(on) {
+  if (!ac) return;
+  if (on && !hum) {
+    const g = ac.createGain(); g.gain.value = 0; g.connect(master);
+    const o1 = ac.createOscillator(), o2 = ac.createOscillator();
+    o1.frequency.value = 55; o2.frequency.value = 55.6; o1.type = "sawtooth"; o2.type = "sine";
+    const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 180;
+    o1.connect(f); o2.connect(f); f.connect(g); o1.start(); o2.start();
+    g.gain.linearRampToValueAtTime(0.05, ac.currentTime + 1.5);
+    hum = { g, o1, o2 };
+  } else if (!on && hum) {
+    const h = hum; hum = null;
+    h.g.gain.linearRampToValueAtTime(0, ac.currentTime + .3);
+    setTimeout(() => { try { h.o1.stop(); h.o2.stop(); } catch (e) {} }, 400);
+  }
+}
 function sfx(type) {
   if (!S.sound || !ac) return;
   const now = ac.currentTime;
   if (lastSfx[type] && now - lastSfx[type] < (type === "hit" ? 0.04 : 0.09)) return;
   lastSfx[type] = now;
-  const env = (node, a, d, peak) => { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(peak, now + a); g.gain.exponentialRampToValueAtTime(0.0001, now + a + d); node.connect(g); g.connect(master); return g; };
-  const osc = (t, f1, f2, dur) => { const o = ac.createOscillator(); o.type = t; o.frequency.setValueAtTime(f1, now); o.frequency.exponentialRampToValueAtTime(f2, now + dur); o.start(now); o.stop(now + dur + 0.05); return o; };
+  const env = (node, a, d, peak, delay) => { const t0 = now + (delay || 0); const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d); node.connect(g); g.connect(master); return g; };
+  const osc = (t, f1, f2, dur, delay) => { const t0 = now + (delay || 0); const o = ac.createOscillator(); o.type = t; o.frequency.setValueAtTime(f1, t0); o.frequency.exponentialRampToValueAtTime(f2, t0 + dur); o.start(t0); o.stop(t0 + dur + 0.05); return o; };
   const noise = (dur, freq, q) => { const s = ac.createBufferSource(); s.buffer = noiseBuf; const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freq; f.Q.value = q || 1; s.connect(f); s.start(now); s.stop(now + dur); return f; };
   switch (type) {
     case "hit": env(osc("sine", 140, 45, 0.12), 0.005, 0.12, 0.9); env(noise(0.08, 1800), 0.002, 0.07, 0.5); break;
+    case "crit": env(osc("sine", 220, 50, 0.18), 0.004, 0.18, 1); env(noise(0.12, 3500), 0.002, 0.1, 0.6); env(osc("square", 1400, 700, 0.08), 0.002, 0.08, 0.06); break;
     case "slice": env(noise(0.12, 5000, 4), 0.004, 0.1, 0.35); env(osc("sawtooth", 900, 300, 0.1), 0.004, 0.08, 0.08); break;
     case "zap": env(osc("square", 1600, 240, 0.06), 0.002, 0.06, 0.06); break;
     case "punch": env(osc("sine", 110, 50, 0.08), 0.003, 0.08, 0.35); break;
@@ -513,19 +770,17 @@ function sfx(type) {
     case "boom": env(noise(0.5, 500), 0.005, 0.45, 0.9); env(osc("sine", 90, 30, 0.4), 0.005, 0.4, 0.8); break;
     case "kill": env(osc("sawtooth", 400, 40, 0.6), 0.01, 0.6, 0.25); env(noise(0.4, 900), 0.005, 0.35, 0.6); break;
     case "revive": env(osc("sine", 180, 900, 1.2), 0.05, 1.1, 0.25); env(osc("triangle", 360, 1800, 1.2), 0.05, 1.1, 0.08); break;
-    case "buy": env(osc("square", 660, 660, 0.05), 0.002, 0.05, 0.08); setTimeout(() => sfxRaw(990), 60); break;
+    case "buy": env(osc("square", 660, 660, 0.05), 0.002, 0.05, 0.08); env(osc("square", 990, 990, 0.05, .06), 0.002, 0.05, 0.08, .06); break;
     case "deny": env(osc("square", 160, 120, 0.12), 0.003, 0.12, 0.1); break;
+    case "alarm": for (let i = 0; i < 4; i++) env(osc("square", i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.14, i * .16), 0.005, 0.13, 0.09, i * .16); break;
+    case "clang": env(osc("triangle", 1300, 1250, 0.25), 0.002, 0.25, 0.25); env(osc("triangle", 1960, 1900, 0.2), 0.002, 0.2, 0.12); break;
+    case "unlock": [523, 659, 784, 1046].forEach((f, i) => env(osc("triangle", f, f, 0.12, i * .07), 0.004, 0.14, 0.14, i * .07)); break;
+    case "power": env(osc("sawtooth", 120, 600, 0.4), 0.02, 0.35, 0.12); env(osc("sine", 240, 1200, 0.4), 0.02, 0.35, 0.1); break;
+    case "drone": env(osc("sawtooth", 300, 320, 0.3), 0.05, 0.25, 0.03); break;
   }
-}
-function sfxRaw(f) {
-  if (!ac || !S.sound) return;
-  const now = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-  o.type = "square"; o.frequency.value = f; g.gain.setValueAtTime(0.08, now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-  o.connect(g); g.connect(master); o.start(now); o.stop(now + 0.1);
 }
 
 // ================== SCENE GEOMETRY ==================
-// Design space: Hank lies on a table centred at x=300. Fit box is what must always be visible.
 const FIT = { x: 100, y: 40, w: 400, h: 750 };
 let dpr = 1, cw = 0, ch = 0, sc = 1, ox = 0, oy = 0;
 const bg = document.createElement("canvas"), bgx = bg.getContext("2d");
@@ -540,6 +795,14 @@ const LIMB_L = {
   calf:     [267, 640, 16, 265, 688, 14]
 };
 const LIMB_R = Object.fromEntries(Object.entries(LIMB_L).map(([k, v]) => [k, mirror(v)]));
+const CUFFS = [
+  { x: 186, y: 404, w: 50, h: 15, limb: "left wrist" }, { x: 364, y: 404, w: 50, h: 15, limb: "right wrist" },
+  { x: 198, y: 282, w: 48, h: 14, limb: "left arm" }, { x: 354, y: 282, w: 48, h: 14, limb: "right arm" },
+  { x: 238, y: 520, w: 62, h: 15, limb: "left thigh" }, { x: 300, y: 520, w: 62, h: 15, limb: "right thigh" },
+  { x: 244, y: 664, w: 46, h: 15, limb: "left ankle" }, { x: 310, y: 664, w: 46, h: 15, limb: "right ankle" },
+  { x: 262, y: 136, w: 76, h: 11, limb: "head" }
+];
+const WEAK_SPOTS = [[300, 250], [270, 320], [330, 320], [300, 360], [300, 165], [228, 290], [372, 290], [272, 500], [328, 500], [300, 300], [260, 262], [340, 262]];
 
 function segDist(px, py, x1, y1, x2, y2) {
   const dx = x2 - x1, dy = y2 - y1, l = dx * dx + dy * dy;
@@ -570,17 +833,17 @@ function layout() {
   cw = canvas.width = Math.round(w * dpr); ch = canvas.height = Math.round(h * dpr);
   bg.width = fx.width = cw; bg.height = fx.height = ch;
   const sx = sr.left - ar.left, sy = sr.top - ar.top;
-  sc = Math.min(sr.width / FIT.w, sr.height / FIT.h);
+  const abH = desktop ? 76 : 70; // keep Hank's feet clear of the ability bar
+  sc = Math.min(sr.width / FIT.w, (sr.height - abH * 0.5) / FIT.h);
+  if (!(sc > 0.05) || !isFinite(sc)) sc = 0.05;
   ox = sx + (sr.width - FIT.w * sc) / 2 - FIT.x * sc;
-  oy = sy + (sr.height - FIT.h * sc) / 2 - FIT.y * sc;
+  oy = sy + (sr.height - abH * 0.5 - FIT.h * sc) / 2 - FIT.y * sc;
   drawBackground();
 }
 function toDesign(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   return { x: (clientX - r.left - ox) / sc, y: (clientY - r.top - oy) / sc };
 }
-
-// seeded random for static scenery
 function rng(seed) { seed = Math.abs(Math.floor(seed)) % 2147483646 + 1; return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
 
 // ================== BACKGROUND (pre-rendered) ==================
@@ -591,7 +854,6 @@ function drawBackground() {
   g.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
   const x0 = -ox / sc - 20, y0 = -oy / sc - 20, x1 = (cw / dpr - ox) / sc + 20, y1 = (ch / dpr - oy) / sc + 20;
 
-  // floor plates
   g.fillStyle = "#131c1f"; g.fillRect(x0, y0, x1 - x0, y1 - y0);
   const P = 100, r = rng(7);
   for (let x = Math.floor(x0 / P) * P; x < x1; x += P) for (let y = Math.floor(y0 / P) * P; y < y1; y += P) {
@@ -602,14 +864,12 @@ function drawBackground() {
     g.fillStyle = "rgba(255,255,255,.035)"; g.fillRect(x + 2, y + 2, P - 4, 1);
     g.fillStyle = "#28363b";
     for (const [a, b] of [[8, 8], [P - 8, 8], [8, P - 8], [P - 8, P - 8]]) { g.beginPath(); g.arc(x + a, y + b, 2.2, 0, 7); g.fill(); }
-    if (r() < 0.18) { // grime
+    if (r() < 0.18) {
       const gr = g.createRadialGradient(x + 50, y + 50, 0, x + 50, y + 50, 60);
       gr.addColorStop(0, "rgba(0,0,0,.28)"); gr.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = gr; g.fillRect(x, y, P, P);
     }
   }
-
-  // hazard frame painted on the floor around the table
   g.save();
   g.beginPath(); g.rect(132, 48, 336, 742); g.rect(146, 62, 308, 714); g.clip("evenodd");
   g.fillStyle = "#1a1405"; g.fillRect(132, 48, 336, 742);
@@ -617,16 +877,12 @@ function drawBackground() {
   for (let i = -800; i < 800; i += 24) { g.beginPath(); g.moveTo(132 + i, 48); g.lineTo(132 + i + 742, 790); g.stroke(); }
   g.restore();
 
-  // cables
   const rc = rng(42);
-  const cables = [];
   for (let i = 0; i < 16; i++) {
     const side = i % 2 ? 1 : -1;
     const sxp = side < 0 ? 160 : 440, syp = 120 + rc() * 600;
     const ex = side < 0 ? x0 - 40 : x1 + 40, ey = y0 + rc() * (y1 - y0);
-    cables.push([sxp, syp, sxp + side * (60 + rc() * 120), syp + (rc() - .5) * 300, ex - side * (80 + rc() * 200), ey + (rc() - .5) * 200, ex, ey, 5 + rc() * 9]);
-  }
-  for (const c of cables) {
+    const c = [sxp, syp, sxp + side * (60 + rc() * 120), syp + (rc() - .5) * 300, ex - side * (80 + rc() * 200), ey + (rc() - .5) * 200, ex, ey, 5 + rc() * 9];
     g.lineCap = "round";
     g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = c[8] + 6;
     g.beginPath(); g.moveTo(c[0] + 4, c[1] + 6); g.bezierCurveTo(c[2] + 4, c[3] + 6, c[4] + 4, c[5] + 6, c[6], c[7] + 6); g.stroke();
@@ -635,8 +891,6 @@ function drawBackground() {
     g.strokeStyle = "rgba(140,190,200,.09)"; g.lineWidth = Math.max(1.2, c[8] * .25);
     g.beginPath(); g.moveTo(c[0] - 1, c[1] - 2); g.bezierCurveTo(c[2] - 1, c[3] - 2, c[4] - 1, c[5] - 2, c[6], c[7] - 2); g.stroke();
   }
-
-  // machinery crates
   const crates = [[-200, 40, 150, 110], [640, 70, 140, 120], [-230, 560, 170, 120], [650, 600, 150, 130], [-120, 300, 110, 90], [600, 330, 120, 80]];
   for (const [x, y, w, h] of crates) {
     g.fillStyle = "rgba(0,0,0,.5)"; g.fillRect(x + 6, y + 8, w, h);
@@ -648,11 +902,7 @@ function drawBackground() {
     g.globalAlpha = 1;
     g.strokeStyle = "rgba(255,255,255,.06)"; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(x + 12, y + h * .6 + i * 6); g.lineTo(x + w - 12, y + h * .6 + i * 6); g.stroke(); }
   }
-
-  // vats
   for (const v of VATS) drawVat(g, v[0], v[1], v[2]);
-
-  // the table
   drawTable(g);
 }
 const VATS = [[48, 130, 50], [36, 690, 54], [556, 150, 48], [566, 680, 52], [-110, 470, 56], [720, 470, 56], [-40, 860, 44], [650, 880, 44], [-60, -40, 40], [660, -30, 40]];
@@ -663,7 +913,7 @@ function drawVat(g, x, y, r) {
   const fl = g.createRadialGradient(x - r * .3, y - r * .3, 2, x, y, r);
   fl.addColorStop(0, "#d6ff9a"); fl.addColorStop(.35, "#5dff6a"); fl.addColorStop(1, "#0d5a22");
   g.fillStyle = fl; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
-  const rb = rng(Math.floor(x * 31 + y));
+  const rb = rng(x * 31 + y);
   g.fillStyle = "rgba(230,255,200,.45)";
   for (let i = 0; i < 9; i++) { const a = rb() * 6.28, d = rb() * r * .8; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.5 + rb() * 4, 0, 7); g.fill(); }
   g.strokeStyle = "rgba(255,255,255,.25)"; g.lineWidth = 3; g.beginPath(); g.arc(x, y, r - 4, 3.6, 4.6); g.stroke();
@@ -676,26 +926,20 @@ function drawTable(g) {
   st.addColorStop(0, "#56656a"); st.addColorStop(.12, "#8b9a9e"); st.addColorStop(.5, "#6f7e82"); st.addColorStop(.88, "#8a989c"); st.addColorStop(1, "#4b585c");
   g.fillStyle = st; roundRect(g, 160, 72, 280, 700, 16); g.fill();
   g.strokeStyle = "#2a3437"; g.lineWidth = 3; roundRect(g, 160, 72, 280, 700, 16); g.stroke();
-  // inner bed
   const bed = g.createLinearGradient(0, 90, 0, 750); bed.addColorStop(0, "#5d6b6f"); bed.addColorStop(1, "#4a575b");
   g.fillStyle = bed; roundRect(g, 176, 92, 248, 640, 10); g.fill();
   g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 2; roundRect(g, 176, 92, 248, 640, 10); g.stroke();
-  // drain grooves
   g.strokeStyle = "rgba(0,0,0,.18)"; g.lineWidth = 2;
   for (let y = 120; y < 720; y += 28) { g.beginPath(); g.moveTo(186, y); g.lineTo(196, y); g.moveTo(404, y); g.lineTo(414, y); g.stroke(); }
-  // brushed streaks
   const rs = rng(99); g.strokeStyle = "rgba(255,255,255,.05)"; g.lineWidth = 1;
   for (let i = 0; i < 60; i++) { const y = 95 + rs() * 630, x = 180 + rs() * 200; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 20 + rs() * 40, y); g.stroke(); }
-  // old stains
   for (let i = 0; i < 7; i++) {
     const x = 190 + rs() * 220, y = 120 + rs() * 600, rr = 8 + rs() * 22;
     const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, "rgba(70,12,14,.35)"); gr.addColorStop(1, "rgba(70,12,14,0)");
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
   }
-  // rivets
   g.fillStyle = "#3a4649";
   for (let y = 90; y < 760; y += 45) for (const x of [168, 432]) { g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); }
-  // foot hazard plate
   g.save(); roundRect(g, 176, 740, 248, 24, 4); g.clip();
   g.fillStyle = "#151515"; g.fillRect(176, 740, 248, 24);
   g.strokeStyle = "#e7a71b"; g.lineWidth = 8;
@@ -730,9 +974,9 @@ function torsoPath(g) {
   g.bezierCurveTo(222, 262, 218, 222, 240, 212);
   g.closePath();
 }
-const SKIN = "#c98a63", SKIN_D = "#9a6143", SKIN_L = "#e3ab84", HAIR = "#1c1512", PANTS = "#4b5336", PANTS_D = "#2f3522";
+const HAIR = "#1c1512", PANTS = "#4b5336", PANTS_D = "#2f3522";
+const NORMAL_SKIN = ["#c98a63", "#9a6143", "#e3ab84"];
 
-// silhouette only, for hit flashes and the regeneration glow
 function drawSilhouette(g, color) {
   g.fillStyle = color;
   for (const L of [LIMB_L, LIMB_R]) for (const k in L) taper(g, L[k]);
@@ -746,26 +990,22 @@ function drawSilhouette(g, color) {
 }
 
 function drawHank(g, t, dmgRatio, pain) {
-  // shadow on the table
-  g.fillStyle = "rgba(0,0,0,.28)";
+  const [SKIN, SKIN_D, SKIN_L] = S.mut ? MUTATIONS[S.mut].skin : NORMAL_SKIN;
+  const lifeKills = S.stats.kills;
   g.save(); g.translate(5, 7); drawSilhouette(g, "rgba(0,0,0,.28)"); g.restore();
 
-  // calves + feet (bare)
   g.fillStyle = SKIN_D; taper(g, LIMB_L.calf); taper(g, LIMB_R.calf);
   for (const x of [264, 336]) {
     g.fillStyle = SKIN; g.beginPath(); g.ellipse(x, 706, 14, 21, 0, 0, 7); g.fill();
     g.fillStyle = SKIN_L; g.beginPath(); g.ellipse(x - 2, 700, 7, 12, 0, 0, 7); g.fill();
     g.fillStyle = SKIN_D; for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(x - 9 + i * 4.5, 724 - Math.abs(i - 1) * 1.2, 2.6, 0, 7); g.fill(); }
   }
-  // trousers
   const pg = g.createLinearGradient(240, 0, 360, 0); pg.addColorStop(0, PANTS_D); pg.addColorStop(.5, PANTS); pg.addColorStop(1, PANTS_D);
   g.fillStyle = pg;
   taper(g, LIMB_L.thigh); taper(g, LIMB_R.thigh); taper(g, LIMB_L.shin); taper(g, LIMB_R.shin);
   roundRect(g, 248, 392, 104, 62, 10); g.fill();
-  // torn hems
   g.fillStyle = PANTS_D;
   for (const x of [267, 333]) { g.beginPath(); g.moveTo(x - 19, 652); for (let i = 0; i <= 8; i++) g.lineTo(x - 19 + i * 4.75, 652 + (i % 2 ? 9 : 2)); g.lineTo(x + 19, 645); g.closePath(); g.fill(); }
-  // creases / pockets
   g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 2;
   for (const s of [-1, 1]) {
     g.beginPath(); g.moveTo(300 + s * 32, 470); g.quadraticCurveTo(300 + s * 40, 520, 300 + s * 30, 560); g.stroke();
@@ -773,42 +1013,45 @@ function drawHank(g, t, dmgRatio, pain) {
     g.beginPath(); g.moveTo(300 + s * 14, 420); g.lineTo(300 + s * 40, 432); g.stroke();
   }
   g.beginPath(); g.moveTo(300, 404); g.lineTo(300, 452); g.stroke();
-  // belt
   g.fillStyle = "#231c16"; g.fillRect(250, 396, 100, 12);
   g.fillStyle = "#9aa3a5"; g.fillRect(292, 395, 16, 14); g.fillStyle = "#231c16"; g.fillRect(296, 399, 8, 6);
 
-  // arms
   for (const L of [LIMB_L, LIMB_R]) {
     g.fillStyle = SKIN; taper(g, L.upperArm);
     g.fillStyle = SKIN_D; taper(g, L.forearm);
     g.fillStyle = SKIN; taper(g, [L.forearm[0], L.forearm[1], L.forearm[2] - 4, L.forearm[3], L.forearm[4], L.forearm[5] - 4]);
-    // bicep highlight
     g.fillStyle = SKIN_L; g.beginPath(); g.ellipse((L.upperArm[0] + L.upperArm[3]) / 2, (L.upperArm[1] + L.upperArm[4]) / 2 - 6, 9, 24, (L.upperArm[0] < 300 ? .15 : -.15), 0, 7); g.fill();
   }
-  for (const x of [209, 391]) { // fists, clenched
+  // claws pop out after 20 lifetime kills
+  if (lifeKills >= 20) {
+    for (const x of [209, 391]) for (let i = -1; i <= 1; i++) {
+      g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 4; g.lineCap = "round";
+      g.beginPath(); g.moveTo(x + i * 6 + 2, 452); g.lineTo(x + i * 8 + 2, 498); g.stroke();
+      g.strokeStyle = "#cfd8db"; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x + i * 6, 450); g.lineTo(x + i * 8, 496); g.stroke();
+      g.strokeStyle = "#fff"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x + i * 6 - .8, 452); g.lineTo(x + i * 8 - .8, 490); g.stroke();
+    }
+  }
+  for (const x of [209, 391]) {
     g.fillStyle = SKIN_D; g.beginPath(); g.arc(x, 440, 15, 0, 7); g.fill();
     g.fillStyle = SKIN; g.beginPath(); g.arc(x, 438, 12, 0, 7); g.fill();
     g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 1.5;
     for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(x - 9, 441 + i * 4); g.lineTo(x + 9, 441 + i * 4); g.stroke(); }
   }
 
-  // torso
   const tg = g.createRadialGradient(300, 280, 20, 300, 300, 130);
   tg.addColorStop(0, SKIN_L); tg.addColorStop(.55, SKIN); tg.addColorStop(1, SKIN_D);
   g.fillStyle = tg; torsoPath(g); g.fill();
-  // neck + traps
   g.fillStyle = SKIN_D; g.fillRect(284, 186, 32, 34);
   g.strokeStyle = "rgba(90,50,30,.45)"; g.lineWidth = 2.2; g.lineCap = "round";
   g.beginPath(); g.moveTo(284, 212); g.quadraticCurveTo(262, 214, 246, 222); g.moveTo(316, 212); g.quadraticCurveTo(338, 214, 354, 222); g.stroke();
-  // pecs
   g.beginPath(); g.moveTo(246, 250); g.quadraticCurveTo(268, 292, 298, 270); g.moveTo(354, 250); g.quadraticCurveTo(332, 292, 302, 270); g.stroke();
   g.fillStyle = "#8a4f36"; g.beginPath(); g.arc(270, 262, 2.6, 0, 7); g.arc(330, 262, 2.6, 0, 7); g.fill();
-  // sternum + abs
   g.beginPath(); g.moveTo(300, 222); g.lineTo(300, 384); g.stroke();
   for (const y of [302, 330, 356]) { g.beginPath(); g.moveTo(278, y); g.quadraticCurveTo(289, y + 3, 298, y); g.moveTo(302, y); g.quadraticCurveTo(311, y + 3, 322, y); g.stroke(); }
   g.beginPath(); g.moveTo(272, 292); g.quadraticCurveTo(270, 340, 280, 392); g.moveTo(328, 292); g.quadraticCurveTo(330, 340, 320, 392); g.stroke();
   g.fillStyle = "rgba(80,40,25,.6)"; g.beginPath(); g.ellipse(300, 378, 2.5, 3.5, 0, 0, 7); g.fill();
-  // chest hair
   g.strokeStyle = "rgba(28,21,18,.55)"; g.lineWidth = 1.2;
   const rh = rng(5);
   for (let i = 0; i < 46; i++) {
@@ -816,65 +1059,83 @@ function drawHank(g, t, dmgRatio, pain) {
     const yy = i < 34 ? y : 300 + rh() * 90, xx = i < 34 ? x : 300 + (rh() - .5) * 8;
     g.beginPath(); g.moveTo(xx, yy); g.lineTo(xx + (rh() - .5) * 4, yy + 3); g.stroke();
   }
+  // glowing veins: Hyper-Regen mutation, or permanently after 75 lifetime kills
+  if (S.mut === "regen" || lifeKills >= 75) {
+    const a = S.mut === "regen" ? .55 + Math.sin(t * 6) * .3 : .22 + Math.sin(t * 2) * .08;
+    g.strokeStyle = `rgba(90,255,150,${a})`; g.lineWidth = 1.6;
+    const rv = rng(17);
+    for (let i = 0; i < 12; i++) {
+      let x = 250 + rv() * 100, y = 230 + rv() * 160;
+      g.beginPath(); g.moveTo(x, y);
+      for (let j = 0; j < 4; j++) { x += (rv() - .5) * 22; y += 6 + rv() * 10; g.lineTo(x, y); }
+      g.stroke();
+    }
+    for (const L of [LIMB_L, LIMB_R]) { const p = L.forearm; g.beginPath(); g.moveTo(p[0], p[1] + 6); g.quadraticCurveTo((p[0] + p[3]) / 2 + 4, (p[1] + p[4]) / 2, p[3], p[4] - 8); g.stroke(); }
+  }
 
-  // head
   g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(266, 162, 6, 9, 0, 0, 7); g.ellipse(334, 162, 6, 9, 0, 0, 7); g.fill();
   const hg = g.createRadialGradient(294, 150, 4, 300, 160, 36); hg.addColorStop(0, SKIN_L); hg.addColorStop(1, SKIN_D);
   g.fillStyle = hg; g.beginPath(); g.arc(300, 160, 34, 0, 7); g.fill();
-  // beard + sideburns
   g.fillStyle = HAIR;
   g.beginPath();
   g.moveTo(267, 150); g.lineTo(264, 168); g.quadraticCurveTo(270, 200, 300, 204); g.quadraticCurveTo(330, 200, 336, 168); g.lineTo(333, 150);
   g.lineTo(327, 152); g.quadraticCurveTo(326, 176, 316, 182); g.quadraticCurveTo(300, 177, 284, 182); g.quadraticCurveTo(274, 176, 273, 152);
   g.closePath(); g.fill();
-  // flared hair
   g.beginPath();
   g.moveTo(264, 156); g.lineTo(256, 118); g.lineTo(276, 132); g.lineTo(282, 112); g.lineTo(296, 128); g.lineTo(306, 110); g.lineTo(314, 128);
   g.lineTo(328, 112); g.lineTo(326, 134); g.lineTo(346, 118); g.lineTo(336, 156);
   g.quadraticCurveTo(330, 140, 300, 140); g.quadraticCurveTo(270, 140, 264, 156);
   g.closePath(); g.fill();
-  // face
   const squint = pain > 0;
+  const frozen = buffOn("cryo");
   g.strokeStyle = HAIR; g.lineWidth = 3.4; g.lineCap = "round";
   g.beginPath();
-  if (squint) { g.moveTo(279, 146); g.lineTo(293, 151); g.moveTo(321, 146); g.lineTo(307, 151); }
+  if (squint || buffOn("enraged")) { g.moveTo(279, 146); g.lineTo(293, 152); g.moveTo(321, 146); g.lineTo(307, 152); }
   else { g.moveTo(279, 149); g.lineTo(293, 151); g.moveTo(321, 149); g.lineTo(307, 151); }
   g.stroke();
-  if (squint) {
+  if (squint && !frozen) {
     g.lineWidth = 2; g.strokeStyle = "#3a2218";
     g.beginPath(); g.moveTo(281, 156); g.lineTo(287, 159); g.lineTo(293, 156); g.moveTo(307, 156); g.lineTo(313, 159); g.lineTo(319, 156); g.stroke();
   } else {
     g.fillStyle = "#f1e6dc"; g.beginPath(); g.ellipse(287, 157, 5, 3, 0, 0, 7); g.ellipse(313, 157, 5, 3, 0, 0, 7); g.fill();
-    const look = Math.sin(t * .7) * 1.5;
-    g.fillStyle = "#2a1a12"; g.beginPath(); g.arc(287 + look, 157, 2.1, 0, 7); g.arc(313 + look, 157, 2.1, 0, 7); g.fill();
+    const look = frozen ? 0 : Math.sin(t * .7) * 1.5;
+    const glow = lifeKills >= 50 || buffOn("enraged");
+    if (glow) { g.shadowColor = buffOn("enraged") ? "#ff3b45" : "#ffd23c"; g.shadowBlur = 8; }
+    g.fillStyle = glow ? (buffOn("enraged") ? "#ff3b45" : "#ffd23c") : "#2a1a12";
+    g.beginPath(); g.arc(287 + look, 157, 2.1, 0, 7); g.arc(313 + look, 157, 2.1, 0, 7); g.fill();
+    g.shadowBlur = 0;
   }
   g.strokeStyle = "rgba(90,50,30,.55)"; g.lineWidth = 1.6;
   g.beginPath(); g.moveTo(300, 157); g.lineTo(298, 170); g.lineTo(303, 171); g.stroke();
-  if (squint) {
+  if (squint && !frozen) {
     g.fillStyle = "#3b1210"; roundRect(g, 289, 180, 22, 9, 3); g.fill();
     g.fillStyle = "#f3eee6"; g.fillRect(291, 181, 18, 3); g.fillRect(291, 186, 18, 2);
+  } else if (frozen) {
+    g.fillStyle = "#2b1a14"; g.beginPath(); g.ellipse(300, 184, 5, 4, 0, 0, 7); g.fill();
   } else {
     g.strokeStyle = "#5a2b20"; g.lineWidth = 2.2;
     g.beginPath(); g.moveTo(290, 184); g.quadraticCurveTo(300, 186, 311, 181); g.stroke();
   }
 
-  // wounds: seeded bruises appear as HP drops
   for (let i = 0; i < SCARS.length; i++) {
-    const sc = SCARS[i], on = (dmgRatio - i / SCARS.length) * SCARS.length;
+    const s = SCARS[i], on = (dmgRatio - i / SCARS.length) * SCARS.length;
     if (on <= 0) continue;
-    drawMark(g, sc, Math.min(1, on) * .85);
+    drawMark(g, s, Math.min(1, on) * .85);
   }
   for (const m of marks) drawMark(g, m, Math.max(0, 1 - m.age / m.life) * (.55 + .45 * dmgRatio));
 
-  // restraints
-  drawCuff(g, 186, 404, 50, 15); drawCuff(g, 364, 404, 50, 15);
-  drawCuff(g, 198, 282, 48, 14); drawCuff(g, 354, 282, 48, 14);
-  drawCuff(g, 238, 520, 64, 15); drawCuff(g, 298, 520, 64, 15);
-  drawCuff(g, 244, 664, 46, 15); drawCuff(g, 310, 664, 46, 15);
-  drawCuff(g, 262, 136, 76, 11);
+  CUFFS.forEach((c, i) => {
+    const alarm = escape && escape.cuff === i;
+    if (alarm) {
+      const j = 2.5;
+      drawCuff(g, c.x + (Math.random() - .5) * j, c.y + (Math.random() - .5) * j, c.w, c.h, Math.sin(perfT * 24) > 0);
+    } else drawCuff(g, c.x, c.y, c.w, c.h, false);
+  });
 }
-function drawCuff(g, x, y, w, h) {
-  const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, "#c3ccce"); gr.addColorStop(.5, "#7e8a8d"); gr.addColorStop(1, "#4b5659");
+function drawCuff(g, x, y, w, h, hot) {
+  const gr = g.createLinearGradient(0, y, 0, y + h);
+  if (hot) { gr.addColorStop(0, "#ffb3b6"); gr.addColorStop(.5, "#e3262f"); gr.addColorStop(1, "#7a0e14"); }
+  else { gr.addColorStop(0, "#c3ccce"); gr.addColorStop(.5, "#7e8a8d"); gr.addColorStop(1, "#4b5659"); }
   g.fillStyle = "rgba(0,0,0,.35)"; roundRect(g, x + 2, y + 3, w, h, 3); g.fill();
   g.fillStyle = gr; roundRect(g, x, y, w, h, 3); g.fill();
   g.strokeStyle = "#2b3437"; g.lineWidth = 1.2; roundRect(g, x, y, w, h, 3); g.stroke();
@@ -905,24 +1166,39 @@ function drawMark(g, m, a) {
     const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12 * s);
     gr.addColorStop(0, "rgba(160,220,40,.8)"); gr.addColorStop(.6, "rgba(90,120,20,.55)"); gr.addColorStop(1, "rgba(90,120,20,0)");
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12 * s, 0, 7); g.fill();
+  } else if (m.type === "void") {
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 15 * s);
+    gr.addColorStop(0, "rgba(10,0,20,.95)"); gr.addColorStop(.6, "rgba(120,60,200,.5)"); gr.addColorStop(1, "rgba(120,60,200,0)");
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 15 * s, 0, 7); g.fill();
   }
   g.restore();
 }
 
 // ================== EFFECTS ==================
-const parts = [], rings = [], bolts = [], pops = [], marks = [];
-let shake = 0, flash = 0, pain = 0, revive = 0, killFlash = 0, bubble = null, bubbleCD = 6;
+const parts = [], rings = [], bolts = [], pops = [], marks = [], decals = [];
+let shake = 0, flash = 0, pain = 0, revive = 0, killFlash = 0, bubble = null, bubbleCD = 6, zoom = 0, crack = 0, crackSeed = 1;
 function addMark(x, y, type, life) {
   marks.push({ x, y, type, rot: Math.random() * 3.14, size: .7 + Math.random() * .5, age: 0, life: life || 7 });
-  if (marks.length > 60) marks.shift();
+  if (marks.length > 70) marks.shift();
+}
+function addDecal(x, y, r) {
+  if (x < 176 || x > 424 || y < 92 || y > 732) return;
+  decals.push({ x, y, r, age: 0, seed: Math.random() * 1e6 });
+  if (decals.length > 70) decals.shift();
 }
 function burst(x, y, n, color, speed, size, kind) {
-  for (let i = 0; i < n && parts.length < 500; i++) {
+  for (let i = 0; i < n && parts.length < 600; i++) {
     const a = Math.random() * 6.283, v = speed * (.3 + Math.random());
     parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .4 + Math.random() * .5, age: 0, size: size * (.5 + Math.random()), color, kind: kind || "drop" });
   }
 }
-function pop(x, y, text, color, size) { pops.push({ x, y, text, color, size: size || 18, age: 0, life: 1.1, vx: (Math.random() - .5) * 30 }); if (pops.length > 80) pops.shift(); }
+function implode(x, y, n, color) {
+  for (let i = 0; i < n && parts.length < 600; i++) {
+    const a = Math.random() * 6.283, d = 60 + Math.random() * 50;
+    parts.push({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, vx: -Math.cos(a) * d * 3.2, vy: -Math.sin(a) * d * 3.2, life: .3, age: 0, size: 1.6 + Math.random() * 1.5, color, kind: "spark", nodrag: true });
+  }
+}
+function pop(x, y, text, color, size, life) { pops.push({ x, y, text, color, size: size || 18, age: 0, life: life || 1.1, vx: (Math.random() - .5) * 30 }); if (pops.length > 90) pops.shift(); }
 function ring(x, y, r, vr, color, w, life) { rings.push({ x, y, r, vr, color, w, age: 0, life: life || .35 }); }
 function say(text, dur) { bubble = { text, age: 0, life: dur || 3 }; log("HANK: " + text, "quip"); }
 
@@ -932,13 +1208,13 @@ const arms = [
   { ax: 482, ay: 470, rest: [372, 330], tip: [372, 330], strike: 0, target: null, side: 1 }
 ];
 const ARM_L = 200;
-function topWeapon() { for (let i = WEAPONS.length - 1; i >= 0; i--) if (lvl(WEAPONS[i], "w") > 0) return WEAPONS[i].id; return "fists"; }
+function topWeapon() { for (let i = WEAPONS.length - 1; i >= 0; i--) if (lvlOf(WEAPONS[i], "w") > 0) return WEAPONS[i].id; return "fists"; }
 function updateArms(dt, t) {
   for (const a of arms) {
     let tx = a.rest[0] + Math.sin(t * .9 + a.side) * 14, ty = a.rest[1] + Math.cos(t * .7 + a.side * 2) * 18;
     if (a.strike > 0) {
       a.strike -= dt;
-      const p = a.strike > .28 ? 1 - (a.strike - .28) / .1 : a.strike / .28; // fast in, slow out
+      const p = a.strike > .28 ? 1 - (a.strike - .28) / .1 : a.strike / .28;
       tx = tx + (a.target[0] - tx) * Math.min(1, p); ty = ty + (a.target[1] - ty) * Math.min(1, p);
     }
     a.tip[0] = tx; a.tip[1] = ty;
@@ -951,10 +1227,8 @@ function drawArm(g, a, tool) {
   const mx = (a.ax + tx) / 2, my = (a.ay + ty) / 2, h = Math.sqrt(Math.max(0, ARM_L * ARM_L - d * d / 4));
   let nx = -dy / d, ny = dx / d; if (nx * a.side < 0) { nx = -nx; ny = -ny; }
   const ex = mx + nx * h, ey = my + ny * h;
-  // shadow
   g.strokeStyle = "rgba(0,0,0,.3)"; g.lineCap = "round"; g.lineWidth = 18;
   g.beginPath(); g.moveTo(a.ax + 10, a.ay + 14); g.lineTo(ex + 10, ey + 14); g.lineTo(tx + 10, ty + 14); g.stroke();
-  // segments
   g.strokeStyle = "#2a3336"; g.lineWidth = 18; g.beginPath(); g.moveTo(a.ax, a.ay); g.lineTo(ex, ey); g.stroke();
   g.strokeStyle = "#d4a321"; g.lineWidth = 12; g.beginPath(); g.moveTo(a.ax, a.ay); g.lineTo(ex, ey); g.stroke();
   g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 2; g.setLineDash([6, 8]); g.beginPath(); g.moveTo(a.ax, a.ay); g.lineTo(ex, ey); g.stroke(); g.setLineDash([]);
@@ -963,7 +1237,7 @@ function drawArm(g, a, tool) {
   for (const [x, y, r] of [[a.ax, a.ay, 18], [ex, ey, 11]]) {
     g.fillStyle = "#1c2326"; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
     g.fillStyle = "#56646a"; g.beginPath(); g.arc(x, y, r * .6, 0, 7); g.fill();
-    g.fillStyle = "#e3262f"; g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill();
+    g.fillStyle = buffOn("adrenaline") || buffOn("frenzy") ? "#f2b01e" : "#e3262f"; g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill();
   }
   g.save(); g.translate(tx, ty); g.rotate(Math.atan2(ty - ey, tx - ex)); drawTool(g, tool); g.restore();
 }
@@ -993,21 +1267,42 @@ function drawTool(g, tool) {
       g.fillStyle = "#56646a"; g.fillRect(24, -7, 26, 14);
       g.shadowColor = "#8f7dff"; g.shadowBlur = 16; g.fillStyle = "#c9c0ff"; g.beginPath(); g.arc(50, 0, 5 + Math.sin(perfT * 12), 0, 7); g.fill(); g.shadowBlur = 0;
       break;
+    case "hammer":
+      g.fillStyle = "#56646a"; g.fillRect(0, -4, 34, 8);
+      g.fillStyle = "#2a3336"; roundRect(g, 30, -18, 24, 36, 4); g.fill();
+      g.shadowColor = "#63d5ff"; g.shadowBlur = 14; g.fillStyle = "#9be6ff"; g.fillRect(40, -16, 4, 32); g.shadowBlur = 0;
+      break;
+    case "lance":
+      g.fillStyle = "#3a4649"; g.fillRect(0, -5, 20, 10);
+      g.shadowColor = "#7fffe0"; g.shadowBlur = 18; g.fillStyle = "#e6fffa";
+      g.beginPath(); g.moveTo(20, -3); g.lineTo(76, 0); g.lineTo(20, 3); g.closePath(); g.fill(); g.shadowBlur = 0;
+      break;
+    case "gauntlet":
+      g.fillStyle = "#14101c"; roundRect(g, 0, -12, 26, 24, 7); g.fill();
+      g.shadowColor = "#b06bff"; g.shadowBlur = 20; g.fillStyle = "#0a0410";
+      g.beginPath(); g.arc(36, 0, 9, 0, 7); g.fill();
+      g.strokeStyle = "#c58bff"; g.lineWidth = 2; g.beginPath(); g.arc(36, 0, 11 + Math.sin(perfT * 9) * 1.5, perfT * 5, perfT * 5 + 4.5); g.stroke(); g.shadowBlur = 0;
+      break;
   }
 }
 
 // ================== GADGETS ==================
-const gad = { punchPhase: 0, teslaT: 0, acidT: 0, orbT: 0, orbTarget: null, orbState: 0, laserSparkT: 0, passiveAcc: 0, passivePopT: 0 };
+const gad = { punchPhase: 0, teslaT: 0, acidT: 0, orbT: 0, orbTarget: null, orbState: 0, laserSparkT: 0, passiveAcc: 0, passivePopT: 0, nanites: [], bhT: 0, loopT: 0, loopFlash: 0, healT: 0 };
+function bodyPoint() {
+  const p = WEAK_SPOTS[Math.floor(Math.random() * WEAK_SPOTS.length)];
+  return [p[0] + (Math.random() - .5) * 30, p[1] + (Math.random() - .5) * 30];
+}
 function gadgetTick(dt, t) {
   const L = id => S.g[id] || 0;
   const live = revive <= 0;
+  const speed = buffOn("overcharge") || buffOn("overclock") ? 2 : 1;
   if (L("puncher")) {
-    const P = Math.max(.22, .8 * Math.pow(.92, L("puncher") - 1));
+    const P = Math.max(.22, .8 * Math.pow(.92, L("puncher") - 1)) / speed;
     const prev = gad.punchPhase; gad.punchPhase = (gad.punchPhase + dt / P) % 1;
     if (live && prev < .25 && gad.punchPhase >= .25) { ring(260, 300, 4, 120, "rgba(255,255,255,.7)", 3); burst(262, 300, 4, "#a3121a", 70, 2.5); addMark(258 + Math.random() * 10, 292 + Math.random() * 16, "bruise", 5); pain = Math.max(pain, .2); sfx("punch"); }
   }
   if (L("tesla")) {
-    gad.teslaT -= dt;
+    gad.teslaT -= dt * speed;
     if (gad.teslaT <= 0) {
       gad.teslaT = Math.max(.08, .55 * Math.pow(.9, L("tesla") - 1)) * (.6 + Math.random() * .8);
       if (live) {
@@ -1019,7 +1314,7 @@ function gadgetTick(dt, t) {
     }
   }
   if (L("acid")) {
-    gad.acidT -= dt;
+    gad.acidT -= dt * speed;
     if (gad.acidT <= 0) {
       gad.acidT = Math.max(.12, .5 * Math.pow(.9, L("acid") - 1));
       if (live) {
@@ -1040,7 +1335,7 @@ function gadgetTick(dt, t) {
     }
   }
   if (L("orbital")) {
-    const P = Math.max(1.1, 4 / (1 + .12 * (L("orbital") - 1)));
+    const P = Math.max(1.1, 4 / (1 + .12 * (L("orbital") - 1))) / speed;
     gad.orbT += dt;
     if (gad.orbState === 0 && gad.orbT > P - .7) { gad.orbState = 1; gad.orbTarget = [262 + Math.random() * 76, 230 + Math.random() * 300]; }
     if (gad.orbState === 1 && gad.orbT >= P) {
@@ -1050,16 +1345,45 @@ function gadgetTick(dt, t) {
         ring(x, y, 10, 520, "rgba(200,240,255,.9)", 6, .45); ring(x, y, 4, 260, "rgba(255,200,120,.8)", 10, .5);
         bolts.push({ beam: true, x, y, age: 0, life: .32 });
         burst(x, y, 30, "#a3121a", 260, 3.5); burst(x, y, 20, "#ffe2a8", 300, 2, "spark");
-        addMark(x, y, "burn", 9); shake = Math.max(shake, 10); pain = .8; sfx("boom");
+        addMark(x, y, "burn", 9); addDecal(x + (Math.random() - .5) * 120, y + (Math.random() - .5) * 120, 10 + Math.random() * 12);
+        shake = Math.max(shake, 10); pain = .8; sfx("boom");
       }
     }
   }
-  // aggregate passive damage numbers
+  if (L("nanites")) {
+    const want = Math.min(70, 14 + L("nanites") * 3);
+    while (gad.nanites.length < want) { const p = bodyPoint(); gad.nanites.push({ x: p[0], y: p[1], tx: p[0], ty: p[1] }); }
+    for (const n of gad.nanites) {
+      const dx = n.tx - n.x, dy = n.ty - n.y, d = Math.hypot(dx, dy);
+      if (d < 3) { const p = bodyPoint(); n.tx = p[0]; n.ty = p[1]; if (live && Math.random() < .04) burst(n.x, n.y, 1, "#a3121a", 40, 1.6); }
+      else { n.x += dx / d * 60 * speed * dt; n.y += dy / d * 60 * speed * dt; }
+    }
+  }
+  if (L("blackhole") && live) {
+    gad.bhT -= dt;
+    if (gad.bhT <= 0) {
+      gad.bhT = .03;
+      const p = bodyPoint(), bx = 300, by = 580;
+      parts.push({ x: p[0], y: p[1], vx: (bx - p[0]) * 2.2, vy: (by - p[1]) * 2.2, life: .45, age: 0, size: 1.5 + Math.random() * 2, color: Math.random() < .6 ? "#a3121a" : "#e3ab84", kind: "drop", nodrag: true });
+    }
+  }
+  if (L("timeloop")) {
+    gad.loopT += dt * speed;
+    gad.loopFlash = Math.max(0, gad.loopFlash - dt);
+    if (gad.loopT > 3) { gad.loopT = 0; gad.loopFlash = .5; if (live) { pain = .5; pop(300, 420, "↺ LOOP", "#7fe9ff", 18); } }
+  }
   gad.passivePopT -= dt;
   if (gad.passivePopT <= 0 && gad.passiveAcc > 0) {
     gad.passivePopT = .7;
     pop(250 + Math.random() * 100, 250 + Math.random() * 150, "-" + fmt(gad.passiveAcc), "#ffb36b", 14);
     gad.passiveAcc = 0;
+  }
+  // visible healing factor: green motes rising off him while he regenerates
+  gad.healT -= dt;
+  if (live && gad.healT <= 0 && S.hp < curMax() && regenMult() > 0) {
+    gad.healT = .18 / Math.max(.4, regenMult());
+    const p = bodyPoint();
+    parts.push({ x: p[0], y: p[1], vx: (Math.random() - .5) * 10, vy: -30, life: .8, age: 0, size: 3, color: "#5dff9a", kind: "plus" });
   }
 }
 function laserYs(t) {
@@ -1075,6 +1399,16 @@ function jag(x1, y1, x2, y2, n, amp) {
 }
 function drawGadgetsUnder(g, t) {
   const L = id => S.g[id] || 0;
+  if (L("timeloop")) {
+    g.save(); g.translate(300, 420);
+    g.strokeStyle = "rgba(127,233,255,.18)"; g.lineWidth = 2;
+    g.beginPath(); g.arc(0, 0, 290, 0, 7); g.stroke();
+    g.rotate(-t * .6);
+    for (let i = 0; i < 12; i++) { g.rotate(Math.PI / 6); g.beginPath(); g.moveTo(0, -290); g.lineTo(0, i % 3 ? -278 : -266); g.stroke(); }
+    g.rotate(t * 2.2);
+    g.strokeStyle = "rgba(127,233,255,.35)"; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -230); g.stroke();
+    g.restore();
+  }
   if (L("laser")) {
     for (const x of [164, 436]) for (let i = 0; i < 6; i++) {
       g.fillStyle = "#1c2326"; g.fillRect(x - 6, 140 + i * 110, 12, 20);
@@ -1101,6 +1435,12 @@ function drawGadgetsUnder(g, t) {
 }
 function drawGadgetsOver(g, t) {
   const L = id => S.g[id] || 0;
+  if (L("nanites")) {
+    for (const n of gad.nanites) {
+      g.fillStyle = "#1c2326"; g.fillRect(n.x - 1.6, n.y - 1.6, 3.2, 3.2);
+      g.fillStyle = "#d9e4e8"; g.fillRect(n.x - 1, n.y - 1, 1.6, 1.6);
+    }
+  }
   if (L("acid")) {
     g.strokeStyle = "#2a3336"; g.lineWidth = 8; g.lineCap = "round";
     g.beginPath(); g.moveTo(530, 60); g.lineTo(440, 170); g.lineTo(358, 262); g.stroke();
@@ -1109,7 +1449,6 @@ function drawGadgetsOver(g, t) {
     g.fillStyle = "rgba(210,240,200,.35)"; roundRect(g, -18, -24, 36, 48, 8); g.fill();
     g.fillStyle = "rgba(120,255,60,.75)"; roundRect(g, -15, -2 - Math.sin(t) * 2, 30, 23, 6); g.fill();
     g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 1.5; roundRect(g, -18, -24, 36, 48, 8); g.stroke();
-    g.fillStyle = "#e3262f"; g.font = "bold 8px monospace"; g.textAlign = "center"; g.fillText("☣", 0, -10);
     g.restore();
   }
   if (L("laser")) {
@@ -1119,105 +1458,377 @@ function drawGadgetsOver(g, t) {
       g.strokeStyle = "#fff"; g.lineWidth = .8; g.beginPath(); g.moveTo(164, y); g.lineTo(436, y); g.stroke();
     }
   }
+  if (L("blackhole")) {
+    const bx = 300, by = 580;
+    g.save(); g.translate(bx, by);
+    const halo = g.createRadialGradient(0, 0, 10, 0, 0, 70); halo.addColorStop(0, "rgba(160,90,255,.45)"); halo.addColorStop(1, "rgba(160,90,255,0)");
+    g.fillStyle = halo; g.beginPath(); g.arc(0, 0, 70, 0, 7); g.fill();
+    g.rotate(t * 1.5);
+    for (let i = 0; i < 3; i++) {
+      g.strokeStyle = ["rgba(255,170,80,.8)", "rgba(255,110,160,.6)", "rgba(190,120,255,.5)"][i]; g.lineWidth = 3 - i * .6;
+      g.beginPath(); g.ellipse(0, 0, 34 + i * 7, 12 + i * 3, 0, 0, 7); g.stroke();
+    }
+    g.fillStyle = "#000"; g.beginPath(); g.arc(0, 0, 13, 0, 7); g.fill();
+    g.strokeStyle = "rgba(255,220,180,.9)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, 14.5, 0, 7); g.stroke();
+    g.restore();
+  }
   if (L("orbital") && gad.orbState === 1 && gad.orbTarget) {
     const [x, y] = gad.orbTarget, k = (gad.orbT % 1);
     g.save(); g.translate(x, y); g.rotate(t * 4);
     g.strokeStyle = "#ff3b45"; g.lineWidth = 2; g.setLineDash([8, 6]);
-    g.beginPath(); g.arc(0, 0, 34 - k * 10, 0, 7); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(0, 0, Math.max(2, 34 - k * 10), 0, 7); g.stroke(); g.setLineDash([]);
     g.beginPath(); for (const a of [0, 1.57, 3.14, 4.71]) { g.moveTo(Math.cos(a) * 18, Math.sin(a) * 18); g.lineTo(Math.cos(a) * 44, Math.sin(a) * 44); } g.stroke();
     g.restore();
   }
+  if (L("timeloop") && gad.loopFlash > 0) {
+    g.save(); g.globalAlpha = gad.loopFlash * .35; g.translate(-14, -8); drawSilhouette(g, "#7fe9ff"); g.restore();
+  }
 }
 
-// ================== INPUT ==================
-let perfT = 0, armIdx = 0;
+// ================== EVENTS: weak spot, supply drones, escape attempts ==================
+let weak = { x: 300, y: 300, t: 0 }, drone = null, droneT = 35, escape = null, escapeT = 70;
+function moveWeak() { const p = WEAK_SPOTS[Math.floor(Math.random() * WEAK_SPOTS.length)]; weak = { x: p[0], y: p[1], t: 0 }; }
+function eventsTick(dt) {
+  weak.t += dt; if (weak.t > 4.5) moveWeak();
+
+  // supply drone
+  if (drone) {
+    drone.t += dt; drone.x += drone.vx * dt; drone.y = drone.y0 + Math.sin(drone.t * 2.2) * 26;
+    if (drone.t > 1 && (drone.x < 40 || drone.x > 560)) { drone = null; log("A supply drone flew off. Catch the next one.", "event"); }
+  } else if (revive <= 0) {
+    droneT -= dt * (has("supply") ? 2 : 1);
+    if (droneT <= 0) {
+      droneT = 45 + Math.random() * 60;
+      const dir = Math.random() < .5 ? 1 : -1;
+      drone = { x: dir > 0 ? 50 : 550, y0: 180 + Math.random() * 380, y: 0, vx: dir * 62, t: 0 };
+      sfx("drone");
+      if (!S.hints.drone) { S.hints.drone = 1; toast("A supply drone is crossing the lab. Click it for a bonus.", "director", "Lab Director"); }
+    }
+  }
+
+  // escape attempts start after 5 lifetime kills
+  if (escape) {
+    escape.t += dt;
+    if (escape.t >= escape.dur) escapeFail();
+  } else if (S.stats.kills >= 5 && revive <= 0) {
+    escapeT -= dt;
+    if (escapeT <= 0) {
+      escapeT = 80 + Math.random() * 90;
+      const i = Math.floor(Math.random() * CUFFS.length);
+      escape = { cuff: i, t: 0, dur: has("restraint") ? 8 : 6, need: has("restraint") ? 3 : 5, hits: 0 };
+      S.stats.escAttempts++;
+      sfx("alarm");
+      toast(`Hank is breaking his ${CUFFS[i].limb} restraint. Click it ${escape.need} times!`, "alert", "Escape attempt");
+      log(`ALERT: Subject straining against ${CUFFS[i].limb} restraint.`, "event");
+      say(["Hold on, I think I've got it...", "This strap is loose.", "Be right back.", "Nnnngh..."][Math.floor(Math.random() * 4)], 2.5);
+    }
+  }
+}
+function inCuff(x, y, i) { const c = CUFFS[i]; return x > c.x - 16 && x < c.x + c.w + 16 && y > c.y - 16 && y < c.y + c.h + 16; }
+function escapeHit() {
+  const c = CUFFS[escape.cuff];
+  escape.hits++;
+  burst(c.x + c.w / 2, c.y + c.h / 2, 8, "#ffe2a8", 160, 1.6, "spark"); ring(c.x + c.w / 2, c.y + c.h / 2, 6, 120, "rgba(255,255,255,.8)", 2.5);
+  sfx("clang");
+  if (escape.hits >= escape.need) {
+    const reward = Math.ceil(Math.max(50, income() * 45) * dnaMult());
+    gain(reward);
+    S.stats.escapes++;
+    pop(c.x + c.w / 2, c.y - 12, "SECURED +" + fmt(reward), "#3fdc86", 18, 1.6);
+    log(`Restraint secured. Hazard pay: +${fmt(reward)} DNA.`, "event");
+    if (Math.random() < .6) say(["Worth a shot.", "Next time.", "You tightened it. Rude."][Math.floor(Math.random() * 3)], 2.2);
+    escape = null;
+  }
+}
+function escapeFail() {
+  const c = CUFFS[escape.cuff];
+  escape = null;
+  S.stats.escFail++;
+  S.hp = curMax();
+  S.buffs.enraged = 20;
+  crack = 4; crackSeed = Math.random() * 1e6; shake = 18;
+  burst(c.x + c.w / 2, c.y + c.h / 2, 18, "#cfd8db", 260, 2, "spark");
+  sfx("boom");
+  say("FREEDOM! ...for one arm. Hi, camera.", 3);
+  log(`Subject broke the ${c.limb} restraint, punched the camera and fully healed. Enraged for 20s.`, "kill");
+  toast("He broke loose, punched the camera and fully healed. Regeneration doubled for 20 seconds.", "alert", "Containment breach");
+}
+function catchDrone() {
+  const d = drone; drone = null;
+  S.stats.drops++;
+  burst(d.x, d.y, 24, "#ffe08a", 220, 2, "spark"); ring(d.x, d.y, 8, 220, "rgba(255,224,138,.9)", 4, .4);
+  sfx("unlock");
+  const r = Math.random();
+  if (r < .45 || baseDps() === 0 && r < .7) {
+    const amt = Math.ceil(Math.max(100, income() * 75, Math.min(S.dna * .1, income() * 600)) * dnaMult());
+    gain(amt);
+    pop(d.x, d.y - 20, "DNA CACHE +" + fmt(amt), "#7fe9ff", 20, 1.8);
+    log(`Supply drone caught: DNA cache, +${fmt(amt)}.`, "event");
+  } else if (r < .75) {
+    S.buffs.frenzy = 15;
+    pop(d.x, d.y - 20, "FRENZY! CLICKS x7", "#ffcf6b", 20, 1.8);
+    log("Supply drone caught: Frenzy serum. Clicks x7 for 15s.", "event"); sfx("power");
+  } else {
+    S.buffs.overclock = 15;
+    pop(d.x, d.y - 20, "OVERCLOCK! GADGETS x7", "#ffcf6b", 20, 1.8);
+    log("Supply drone caught: Overclock chip. Gadgets x7 for 15s.", "event"); sfx("power");
+  }
+}
+function drawDrone(g, d, t) {
+  g.save(); g.translate(d.x, d.y);
+  g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(14, 22, 30, 14, 0, 0, 7); g.fill();
+  const glow = g.createRadialGradient(0, 0, 4, 0, 0, 46); glow.addColorStop(0, "rgba(255,224,138,.5)"); glow.addColorStop(1, "rgba(255,224,138,0)");
+  g.fillStyle = glow; g.beginPath(); g.arc(0, 0, 46, 0, 7); g.fill();
+  g.strokeStyle = "#2a3336"; g.lineWidth = 4;
+  g.beginPath(); g.moveTo(-18, -18); g.lineTo(18, 18); g.moveTo(18, -18); g.lineTo(-18, 18); g.stroke();
+  for (const [x, y] of [[-18, -18], [18, -18], [-18, 18], [18, 18]]) {
+    g.fillStyle = "rgba(200,220,225,.25)"; g.beginPath(); g.arc(x, y, 11, 0, 7); g.fill();
+    g.strokeStyle = "rgba(230,240,240,.7)"; g.lineWidth = 1.5; g.beginPath(); const a = t * 40; g.moveTo(x + Math.cos(a) * 10, y + Math.sin(a) * 10); g.lineTo(x - Math.cos(a) * 10, y - Math.sin(a) * 10); g.stroke();
+  }
+  g.fillStyle = "#3a4649"; roundRect(g, -11, -9, 22, 18, 4); g.fill();
+  g.shadowColor = "#ffe08a"; g.shadowBlur = 12;
+  g.fillStyle = "#ffe08a"; roundRect(g, -5, -6, 10, 12, 3); g.fill();
+  g.shadowBlur = 0;
+  g.fillStyle = Math.sin(t * 10) > 0 ? "#e3262f" : "#3fdc86"; g.beginPath(); g.arc(0, -12, 2, 0, 7); g.fill();
+  g.restore();
+}
+function drawWeak(g, t) {
+  if (revive > 0) return;
+  const p = .5 + Math.sin(t * 7) * .5, fade = Math.min(1, weak.t * 4, (4.5 - weak.t) * 3);
+  g.save(); g.translate(weak.x, weak.y); g.globalAlpha = fade;
+  const gl = g.createRadialGradient(0, 0, 0, 0, 0, 22); gl.addColorStop(0, `rgba(255,230,80,${.45 + p * .3})`); gl.addColorStop(1, "rgba(255,230,80,0)");
+  g.fillStyle = gl; g.beginPath(); g.arc(0, 0, 22, 0, 7); g.fill();
+  g.strokeStyle = "#ffe14f"; g.lineWidth = 2; g.rotate(t * 2);
+  g.beginPath(); g.arc(0, 0, 11 + p * 3, 0, 7); g.stroke();
+  for (let i = 0; i < 4; i++) { g.rotate(Math.PI / 2); g.beginPath(); g.moveTo(0, -15 - p * 3); g.lineTo(0, -21 - p * 3); g.stroke(); }
+  g.restore();
+}
+
+// ================== CORE ACTIONS ==================
+let perfT = 0;
 const clickTimes = [];
+function gain(a) { S.dna += a; S.runDna += a; S.totalDna += a; S.stats.totalDna += a; }
 function strike(x, y) {
   audioInit();
+  if (drone && Math.hypot(x - drone.x, y - drone.y) < 38) { catchDrone(); return; }
+  if (escape && inCuff(x, y, escape.cuff)) { escapeHit(); return; }
   const part = hitHank(x, y);
   if (!part) { ring(x, y, 3, 60, "rgba(99,213,255,.6)", 1.5, .3); return; }
   if (revive > 0) { pop(x, y - 10, "REGENERATING", "#3fdc86", 13); return; }
-  const dmg = clickDmg();
-  S.clicks++;
+
+  combo = perfT - lastClick < COMBO_WINDOW ? combo + 1 : 1;
+  lastClick = perfT;
+  if (combo > S.stats.maxCombo) S.stats.maxCombo = combo;
+
+  let mult = 1, label = null;
+  if (Math.hypot(x - weak.x, y - weak.y) < 20 && weak.t > .15) {
+    mult = has("weakspot") ? 20 : 10; label = "WEAK SPOT"; S.stats.weak++; S.stats.crits++;
+    ring(weak.x, weak.y, 6, 260, "rgba(255,230,80,.95)", 4, .4); moveWeak();
+  } else if (Math.random() < critChance()) {
+    mult = 5; label = "CRIT"; S.stats.crits++;
+  }
+  const dmg = clickDmg() * mult;
+  S.stats.clicks++;
   clickTimes.push(perfT);
   const arm = x < 300 ? arms[0] : arms[1];
   arm.strike = .38; arm.target = [x, y];
   const tool = topWeapon();
-  setTimeout(() => impactFx(x, y, tool), 70);
-  pop(x, y - 14, "-" + fmt(dmg), "#ffffff", tool === "cannon" ? 24 : 19);
+  setTimeout(() => impactFx(x, y, tool, !!label), 70);
+  if (label) {
+    pop(x, y - 34, label + "!", "#ffe14f", 15, 1.2);
+    pop(x, y - 14, "-" + fmt(dmg), "#ffe14f", 26, 1.3);
+    shake = Math.max(shake, 6);
+  } else pop(x, y - 14, "-" + fmt(dmg), "#ffffff", ["cannon", "hammer", "lance", "gauntlet"].includes(tool) ? 24 : 19);
+  if (has("cauter") && (S.w.scalpel || 0) > 0) cauterUntil = perfT + 2;
   damage(dmg);
   flash = .12; pain = .55;
-  if (!bubble && Math.random() < .015) say(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+  if (!bubble && Math.random() < .012) say(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
 }
-function impactFx(x, y, tool) {
+function impactFx(x, y, tool, crit) {
+  if (crit) { burst(x, y, 10, "#ffe14f", 220, 1.8, "spark"); sfx("crit"); }
+  if (Math.random() < .35) addDecal(x + (Math.random() - .5) * 80, y + (Math.random() - .5) * 80, 4 + Math.random() * 8);
   switch (tool) {
-    case "fists": ring(x, y, 4, 140, "rgba(255,255,255,.85)", 3); burst(x, y, 6, "#a3121a", 120, 2.6); addMark(x, y, "bruise"); shake = Math.max(shake, 2); sfx("hit"); break;
-    case "bat": ring(x, y, 6, 180, "rgba(255,255,255,.9)", 4); burst(x, y, 12, "#a3121a", 170, 3); addMark(x, y, "bruise"); addMark(x + 6, y - 4, "cut"); shake = Math.max(shake, 4); sfx("hit"); break;
+    case "fists": ring(x, y, 4, 140, "rgba(255,255,255,.85)", 3); burst(x, y, 6, "#a3121a", 120, 2.6); addMark(x, y, "bruise"); shake = Math.max(shake, 2); if (!crit) sfx("hit"); break;
+    case "bat": ring(x, y, 6, 180, "rgba(255,255,255,.9)", 4); burst(x, y, 12, "#a3121a", 170, 3); addMark(x, y, "bruise"); addMark(x + 6, y - 4, "cut"); shake = Math.max(shake, 4); if (!crit) sfx("hit"); break;
     case "chainsaw": burst(x, y, 14, "#ffb347", 220, 1.6, "spark"); burst(x, y, 16, "#a3121a", 200, 3); addMark(x, y, "cut"); shake = Math.max(shake, 3); sfx("slice"); break;
     case "scalpel": bolts.push({ slash: true, x, y, a: Math.random() * 3.14, age: 0, life: .25 }); burst(x, y, 10, "#ffcf8a", 160, 1.6, "spark"); addMark(x, y, "burn"); addMark(x, y, "cut"); sfx("slice"); break;
-    case "cannon": bolts.push({ beam: true, x, y, age: 0, life: .2, violet: true }); ring(x, y, 8, 300, "rgba(190,170,255,.9)", 5, .4); burst(x, y, 22, "#a3121a", 260, 3.4); burst(x, y, 14, "#d8ccff", 260, 2, "spark"); addMark(x, y, "burn", 9); shake = Math.max(shake, 7); sfx("boom"); break;
+    case "cannon": bolts.push({ beam: true, x, y, age: 0, life: .2, color: "180,160,255", w: 16 }); ring(x, y, 8, 300, "rgba(190,170,255,.9)", 5, .4); burst(x, y, 22, "#a3121a", 260, 3.4); burst(x, y, 14, "#d8ccff", 260, 2, "spark"); addMark(x, y, "burn", 9); shake = Math.max(shake, 7); sfx("boom"); break;
+    case "hammer": for (let i = 0; i < 3; i++) ring(x, y, 6 + i * 10, 260 + i * 80, "rgba(155,230,255,.8)", 6 - i * 1.5, .45); burst(x, y, 26, "#a3121a", 300, 3.6); burst(x, y, 16, "#9be6ff", 280, 2, "spark"); addMark(x, y, "bruise", 9); addMark(x, y, "burn", 9); addDecal(x, y, 18); shake = Math.max(shake, 11); zoom = Math.max(zoom, .02); sfx("boom"); break;
+    case "lance": bolts.push({ beam: true, x, y, age: 0, life: .26, color: "127,255,224", w: 22 }); ring(x, y, 10, 380, "rgba(127,255,224,.9)", 6, .45); burst(x, y, 28, "#a3121a", 320, 3.6); burst(x, y, 20, "#e6fffa", 320, 2, "spark"); addMark(x, y, "burn", 10); shake = Math.max(shake, 12); sfx("boom"); sfx("zap"); break;
+    case "gauntlet": implode(x, y, 34, "#c58bff"); rings.push({ x, y, r: 110, vr: -300, color: "rgba(197,139,255,.85)", w: 5, age: 0, life: .35 }); setTimeout(() => { burst(x, y, 34, "#a3121a", 360, 3.8); ring(x, y, 4, 520, "rgba(255,255,255,.9)", 7, .4); shake = Math.max(shake, 14); sfx("boom"); }, 260); addMark(x, y, "void", 11); zoom = Math.max(zoom, .03); break;
   }
 }
 function damage(a, passive) {
   if (revive > 0 || a <= 0) return;
-  S.dna += a; S.totalDna += a; S.hp -= a;
+  const d = a * dnaMult();
+  gain(d); S.hp -= a;
   if (passive) gad.passiveAcc += a;
   if (S.hp <= 0) kill();
 }
 function kill() {
-  const bonus = Math.ceil(S.maxHp * KILL_BONUS);
-  S.dna += bonus; S.totalDna += bonus; S.kills++;
-  const old = S.maxHp;
+  const wasMut = S.mut;
+  const bonus = Math.ceil(curMax() * KILL_BONUS * (has("vats") ? 2 : 1) * (wasMut ? 5 : 1) * dnaMult());
+  gain(bonus); S.kills++; S.stats.kills++;
+  if (wasMut) S.stats.mutKills++;
+  const old = curMax();
   S.maxHp = Math.ceil(S.maxHp * REVIVE_MULT);
-  S.hp = 0; revive = REVIVE_TIME; killFlash = 1;
-  marks.length = 0;
+  if (S.maxHp > S.stats.bestHp) S.stats.bestHp = S.maxHp;
+  // every 10th life is a mutated Hank
+  S.mut = (S.kills + 1) % 10 === 0 ? Object.keys(MUTATIONS)[Math.floor(Math.random() * 4)] : null;
+  S.hp = 0; revive = REVIVE_TIME; killFlash = 1; zoom = .05;
+  marks.length = 0; escape = null; combo = Math.floor(combo / 2);
   burst(300, 300, 50, "#a3121a", 320, 4); burst(300, 160, 20, "#a3121a", 260, 3.5);
+  for (let i = 0; i < 6; i++) addDecal(220 + Math.random() * 160, 200 + Math.random() * 400, 8 + Math.random() * 16);
   shake = 14; pain = 0;
-  pop(300, 110, "+" + fmt(bonus) + " DNA", "#7fe9ff", 30);
-  log(`Subject flatlined (${fmt(old)} HP). +${fmt(bonus)} DNA bonus. Max HP now ${fmt(S.maxHp)}.`, "kill");
+  pop(300, 110, "+" + fmt(bonus) + " DNA", wasMut ? "#c58bff" : "#7fe9ff", 30, 1.6);
+  log(`${wasMut ? "MUTATED subject" : "Subject"} flatlined (${fmt(old)} HP). +${fmt(bonus)} DNA bonus. Max HP now ${fmt(S.maxHp)}.`, wasMut ? "mut" : "kill");
   sfx("kill"); setTimeout(() => sfx("revive"), 500);
   bubble = null; bubbleCD = 6;
-  setTimeout(() => say(REVIVE_QUIPS[Math.floor(Math.random() * REVIVE_QUIPS.length)], 2.6), REVIVE_TIME * 1000 + 100);
+  if (S.mut) {
+    const m = MUTATIONS[S.mut];
+    setTimeout(() => { toast(`${m.name}: ${m.desc.toLowerCase()}. Kill him for a x5 payout.`, "mut", "Mutation detected"); log(`Mutation detected: ${m.name}. ${m.desc}.`, "mut"); }, REVIVE_TIME * 600);
+  }
+  setTimeout(() => say(S.mut ? "I feel... different." : REVIVE_QUIPS[Math.floor(Math.random() * REVIVE_QUIPS.length)], 2.6), REVIVE_TIME * 1000 + 100);
+  if (S.stats.kills === 20) setTimeout(() => toast("Subject has started growing bone claws. That's new.", "director", "Lab Director"), 2500);
+  if (S.stats.kills === 50) setTimeout(() => toast("Subject's eyes now glow in the dark. Morale is low.", "director", "Lab Director"), 2500);
   save();
 }
+function useAbility(ab) {
+  if (!ab.unlock()) { toast(ab.unlockText + ".", "", ab.name + " locked"); sfx("deny"); return; }
+  if ((S.cd[ab.id] || 0) > 0) { sfx("deny"); return; }
+  audioInit();
+  const dur = ab.id === "cryo" && has("cryo2") ? 20 : ab.dur;
+  S.buffs[ab.id] = dur; S.cd[ab.id] = ab.cd; S.stats.abilities++;
+  sfx("power");
+  log(`${ab.name} activated: ${ab.desc.toLowerCase()}.`, "sys");
+  if (ab.id === "cryo") { say("C-c-cold. Very c-c-cold.", 2.5); burst(300, 350, 30, "#d8f6ff", 200, 2, "spark"); }
+  if (ab.id === "adrenaline") ring(300, 400, 20, 500, "rgba(242,176,30,.8)", 5, .5);
+  if (ab.id === "overcharge") ring(300, 400, 20, 500, "rgba(99,213,255,.8)", 5, .5);
+  if (ab.id === "harvest") ring(300, 400, 20, 500, "rgba(127,233,255,.8)", 5, .5);
+}
+function doClone() {
+  const g = cloneGain();
+  if (g < 1) return;
+  const keep = { mutagen: S.mutagen + g, ach: S.ach, hints: S.hints, stats: S.stats, sound: S.sound, totalDna: S.totalDna, play: S.play, run: S.run + 1 };
+  S.stats.prestiges++;
+  S = Object.assign(fresh(), keep);
+  revive = 0; marks.length = 0; decals.length = 0; escape = null; drone = null; combo = 0; gad.nanites.length = 0;
+  ui.log.innerHTML = "";
+  log(`Clone Protocol complete. Generation ${S.run + 1} online with ${fmt(S.mutagen)} Mutagen (+${fmt(S.mutagen * 10)}% damage).`, "mut");
+  toast(`Generation ${S.run + 1} is on the table. Every hit now deals +${fmt(S.mutagen * 10)}% damage.`, "mut", "Clone Protocol");
+  setTimeout(() => say("Weird. I feel like we've met.", 3), 1200);
+  sfx("revive");
+  killFlash = 1;
+  renderShop(); save();
+}
 
+// ================== INPUT ==================
 stageEl.addEventListener("pointerdown", e => { e.preventDefault(); const p = toDesign(e.clientX, e.clientY); strike(p.x, p.y); });
 stageEl.addEventListener("keydown", e => {
-  if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; strike(270 + Math.random() * 60, 240 + Math.random() * 140); }
+  if (e.key === " " || e.key === "Enter") {
+    e.preventDefault(); if (e.repeat) return;
+    if (escape) { const c = CUFFS[escape.cuff]; strike(c.x + c.w / 2, c.y + c.h / 2); }
+    else if (drone) strike(drone.x, drone.y);
+    else strike(weak.x + (Math.random() - .5) * 50, weak.y + (Math.random() - .5) * 50);
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !modal.hidden) { closeModal(); return; }
+  if (!modal.hidden || e.target.closest && e.target.closest("input,textarea")) return;
+  const ab = ABILITIES.find(a => a.key === e.key);
+  if (ab) useAbility(ab);
 });
 
+// ================== ABILITY BAR ==================
+function renderAbilities() {
+  ui.abilities.innerHTML = "";
+  for (const ab of ABILITIES) {
+    const b = document.createElement("button");
+    b.className = "ab"; b.dataset.id = ab.id;
+    b.innerHTML = `<kbd>${ab.key}</kbd>${SVG(ICONS[ab.icon])}<span>${ab.name}</span><span class="cdn"></span>`;
+    b.addEventListener("click", () => useAbility(ab));
+    ui.abilities.append(b);
+  }
+}
+function updateAbilities() {
+  for (const ab of ABILITIES) {
+    const b = ui.abilities.querySelector(`[data-id="${ab.id}"]`);
+    const unlocked = ab.unlock(), cd = S.cd[ab.id] || 0, on = buffOn(ab.id);
+    b.classList.toggle("locked", !unlocked);
+    b.classList.toggle("active", on);
+    b.style.setProperty("--p", unlocked && cd > 0 && !on ? (cd / ab.cd).toFixed(3) : 0);
+    const label = !unlocked ? "" : on ? Math.ceil(S.buffs[ab.id]) : cd > 0 ? Math.ceil(cd) : "";
+    const cdn = b.querySelector(".cdn");
+    if (cdn.textContent !== String(label)) cdn.textContent = label;
+    const tip = unlocked ? `${ab.name} (${ab.key}): ${ab.desc}. Cooldown ${ab.cd}s.` : `${ab.name}: ${ab.unlockText}.`;
+    if (b.title !== tip) { b.title = tip; b.setAttribute("aria-label", tip); }
+  }
+}
+
 // ================== SHOP ==================
+let researchSig = "";
+function availableResearch() { return RESEARCH.filter(r => !S.r[r.id] && r.req()).sort((a, b) => a.cost - b.cost); }
 function renderShop() {
-  const list = tab === "weapons" ? WEAPONS : GADGETS;
   ui.items.innerHTML = "";
+  document.querySelector(".qty").hidden = tab === "research";
+  if (tab === "research") { renderResearch(); return; }
+  const list = tab === "weapons" ? WEAPONS : GADGETS;
   list.forEach(it => {
     const li = document.createElement("li");
     const b = document.createElement("button");
-    b.className = "item"; b.dataset.id = it.id;
-    b.innerHTML = `<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[it.id === "puncher" ? "puncher" : it.id]}</svg></span>
-      <span class="meta"><span class="nm-row"><span class="nm"></span><span class="lvl"></span></span><span class="eff"></span><span class="ds"></span><span class="price"></span></span>`;
+    b.className = "item" + (it.tier2 ? " tier2" : ""); b.dataset.id = it.id;
+    b.innerHTML = `<span class="ico">${SVG(ICONS[it.id])}</span>
+      <span class="meta"><span class="nm-row"><span class="nm"></span><span class="lvl"></span></span><span class="eff"></span><span class="ms"></span><span class="ds"></span><span class="price"></span></span>`;
     b.addEventListener("click", () => buy(it));
     li.append(b); ui.items.append(li);
   });
-  $("qtyHint").textContent = tab === "weapons" ? "Active click upgrades" : "Passive DPS upgrades";
+  ui.qtyHint.textContent = tab === "weapons" ? "Active click upgrades" : "Passive DPS upgrades";
   updateShop(true);
 }
-function buyCount(it, level) {
-  if (qty === "max") return Math.max(1, maxAffordable(it, level));
-  return Number(qty);
+function renderResearch() {
+  const av = availableResearch();
+  researchSig = av.map(r => r.id).join(",");
+  for (const r of av) {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.className = "item research"; b.dataset.rid = r.id;
+    b.innerHTML = `<span class="ico">${SVG(ICONS[r.icon] || ICONS.flask)}</span>
+      <span class="meta"><span class="nm-row"><span class="nm">${esc(r.name)}</span><span class="lvl">PROJECT</span></span><span class="ds">${esc(r.desc)}</span><span class="price"></span></span>`;
+    b.addEventListener("click", () => buyResearch(r));
+    li.append(b); ui.items.append(li);
+  }
+  const owned = Object.keys(S.r).length;
+  const next = RESEARCH.filter(r => !S.r[r.id] && !r.req()).sort((a, b) => a.cost - b.cost).slice(0, 3);
+  const li = document.createElement("li"); li.className = "shop-note";
+  li.innerHTML = (av.length ? "" : "No projects ready. ") + `Installed ${owned}/${RESEARCH.length}.` +
+    (next.length ? "<br>Next unlocks: " + next.map(r => `${esc(r.name)} (${esc(r.reqText)})`).join("; ") + "." : "");
+  ui.items.append(li);
+  updateShop(true);
 }
+function buyCount(it, level) { return qty === "max" ? Math.max(1, maxAffordable(it, level)) : Number(qty); }
+function nextMilestone(level) { return MILESTONES.find(m => m > level); }
 function updateShop(force) {
+  if (tab === "research") {
+    if (availableResearch().map(r => r.id).join(",") !== researchSig) { renderShop(); return; }
+    ui.items.querySelectorAll("[data-rid]").forEach(b => {
+      const r = RESEARCH.find(x => x.id === b.dataset.rid), can = S.dna >= r.cost;
+      b.setAttribute("aria-disabled", String(!can));
+      const t = fmt(r.cost) + " DNA"; const p = b.querySelector(".price"); if (p.textContent !== t) p.textContent = t;
+    });
+    return;
+  }
   const kind = tab === "weapons" ? "w" : "g";
   const list = tab === "weapons" ? WEAPONS : GADGETS;
   list.forEach((it, i) => {
     const b = ui.items.querySelector(`[data-id="${it.id}"]`); if (!b) return;
-    const level = lvl(it, kind);
-    const revealed = i === 0 || level > 0 || lvl(list[i - 1], kind) > 0 || S.totalDna >= it.cost * .4;
+    const level = lvlOf(it, kind);
+    const revealed = i === 0 || level > 0 || lvlOf(list[i - 1], kind) > 0 || S.runDna >= it.cost * .4;
     const n = buyCount(it, level), cost = costOf(it, level, n);
     const can = revealed && S.dna >= cost;
-    const per = kind === "w" ? it.dmg : it.dps;
+    const per = (kind === "w" ? it.dmg : it.dps) * itemMult(it, kind);
     const unit = kind === "w" ? "dmg" : "/sec";
-    const sig = [revealed, level, n, cost, can].join("|");
+    const ms = nextMilestone(level);
+    const sig = [revealed, level, n, cost, can, per].join("|");
     if (!force && b._sig === sig) return;
     b._sig = sig;
     b.classList.toggle("locked", !revealed);
@@ -1225,9 +1836,24 @@ function updateShop(force) {
     b.querySelector(".nm").textContent = revealed ? it.name : "CLASSIFIED";
     b.querySelector(".lvl").textContent = level ? "LVL " + level : (it.base ? it.base : "");
     b.querySelector(".eff").textContent = revealed ? `+${fmt(per)} ${unit} each` + (level ? ` · ${fmt(per * level)} total` : "") : "Clearance pending";
+    const msEl = b.querySelector(".ms");
+    if (revealed && level > 0 && ms) {
+      const prev = [...MILESTONES].reverse().find(m => m <= level) || 0;
+      msEl.innerHTML = `Lvl ${ms}: output x2<i style="--m:${Math.round((level - prev) / (ms - prev) * 100)}%"></i>`;
+    } else msEl.textContent = "";
     b.querySelector(".ds").textContent = revealed ? it.desc : "Harvest more DNA to declassify this hardware.";
     b.querySelector(".price").textContent = (n > 1 ? `x${n}: ` : "") + fmt(cost) + " DNA";
     b.setAttribute("aria-label", revealed ? `${it.name}, level ${level}. Buy ${n} for ${fmt(cost)} DNA.` : "Classified item");
+  });
+}
+function updateBadges() {
+  const counts = { weapons: 0, gadgets: 0, research: 0 };
+  WEAPONS.forEach((it, i) => { const L = lvlOf(it, "w"); if ((i === 0 || L > 0 || lvlOf(WEAPONS[i - 1], "w") > 0) && S.dna >= costOf(it, L, 1)) counts.weapons++; });
+  GADGETS.forEach((it, i) => { const L = lvlOf(it, "g"); if ((i === 0 || L > 0 || lvlOf(GADGETS[i - 1], "g") > 0) && S.dna >= costOf(it, L, 1)) counts.gadgets++; });
+  counts.research = availableResearch().filter(r => S.dna >= r.cost).length;
+  document.querySelectorAll(".tab").forEach(t => {
+    const b = t.querySelector(".badge"), n = counts[t.dataset.tab];
+    b.hidden = !n || t.dataset.tab === tab; if (b.textContent !== String(n)) b.textContent = n;
   });
 }
 function buy(it) {
@@ -1238,14 +1864,27 @@ function buy(it) {
   if (S.dna < cost) { sfx("deny"); return; }
   S.dna -= cost; bag[it.id] = level + n;
   audioInit(); sfx("buy");
+  const crossed = MILESTONES.filter(m => level < m && level + n >= m);
   log(`Requisitioned ${it.name}${n > 1 ? " x" + n : ""} → Lvl ${bag[it.id]}.`, "buy");
-  if (level === 0 && kind === "g") toast(`${it.name} mounted. It works while you sleep.`);
+  if (crossed.length) { toast(`${it.name} reached Lvl ${crossed[crossed.length - 1]}. Output doubled${crossed.length > 1 ? " " + crossed.length + " times" : ""}.`, "ach", "Milestone"); sfx("unlock"); }
+  if (level === 0) {
+    if (kind === "g") toast(`${it.name} mounted. It works while you sleep.`, "", "New hardware");
+    if (BUY_QUIPS[it.id]) setTimeout(() => say(BUY_QUIPS[it.id], 2.8), 300);
+  }
   updateShop(true); save();
+}
+function buyResearch(r) {
+  if (S.dna < r.cost || S.r[r.id]) { sfx("deny"); return; }
+  S.dna -= r.cost; S.r[r.id] = 1;
+  audioInit(); sfx("unlock");
+  log(`Research complete: ${r.name}. ${r.desc}`, "buy");
+  toast(r.desc, "", r.name);
+  renderShop(); save();
 }
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
   tab = t.dataset.tab;
   document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", String(x === t)));
-  renderShop();
+  renderShop(); updateBadges();
 }));
 document.querySelectorAll(".qty button").forEach(bt => bt.addEventListener("click", () => {
   qty = bt.dataset.q;
@@ -1253,18 +1892,126 @@ document.querySelectorAll(".qty button").forEach(bt => bt.addEventListener("clic
   updateShop(true);
 }));
 
+// ================== ACHIEVEMENTS + HINTS ==================
+const st = () => S.stats;
+const ACH = [
+  ["k1", "First Blood", "Flatline Hank once.", () => st().kills >= 1],
+  ["k10", "Repeat Offender", "Flatline Hank 10 times.", () => st().kills >= 10],
+  ["k50", "Serial Researcher", "Flatline Hank 50 times.", () => st().kills >= 50],
+  ["k100", "Centurion", "Flatline Hank 100 times.", () => st().kills >= 100],
+  ["k250", "He Keeps Coming Back", "Flatline Hank 250 times.", () => st().kills >= 250],
+  ["k1000", "Groundhog Hank", "Flatline Hank 1,000 times.", () => st().kills >= 1000],
+  ["c100", "Carpal Tunnel I", "Click Hank 100 times.", () => st().clicks >= 100],
+  ["c1k", "Carpal Tunnel II", "Click Hank 1,000 times.", () => st().clicks >= 1000],
+  ["c10k", "Carpal Tunnel III", "Click Hank 10,000 times.", () => st().clicks >= 10000],
+  ["d1k", "Lab Funding", "Harvest 1,000 DNA in total.", () => st().totalDna >= 1e3],
+  ["d1m", "Grant Approved", "Harvest 1 million DNA in total.", () => st().totalDna >= 1e6],
+  ["d1b", "Black Budget", "Harvest 1 billion DNA in total.", () => st().totalDna >= 1e9],
+  ["d1t", "Off the Books", "Harvest 1 trillion DNA in total.", () => st().totalDna >= 1e12],
+  ["d1qa", "Unaccountable", "Harvest 1 quadrillion DNA in total.", () => st().totalDna >= 1e15],
+  ["crit100", "Precision Trauma", "Land 100 critical hits.", () => st().crits >= 100],
+  ["crit1k", "Surgical", "Land 1,000 critical hits.", () => st().crits >= 1000],
+  ["weak25", "Found the Spot", "Hit 25 weak spots.", () => st().weak >= 25],
+  ["combo100", "Unrelenting", "Reach a 100-hit combo.", () => st().maxCombo >= 100],
+  ["combo200", "Blur", "Reach a 200-hit combo.", () => st().maxCombo >= 200],
+  ["drop1", "Special Delivery", "Catch a supply drone.", () => st().drops >= 1],
+  ["drop25", "Frequent Flyer", "Catch 25 supply drones.", () => st().drops >= 25],
+  ["esc1", "Not Today", "Stop an escape attempt.", () => st().escapes >= 1],
+  ["esc10", "Warden", "Stop 10 escape attempts.", () => st().escapes >= 10],
+  ["escFail", "Oops", "Let Hank break a restraint.", () => st().escFail >= 1],
+  ["mut1", "Mutant Control", "Kill a mutated Hank.", () => st().mutKills >= 1],
+  ["mut10", "Selective Pressure", "Kill 10 mutated Hanks.", () => st().mutKills >= 10],
+  ["orb", "Call It In", "Buy an Orbital Strike.", () => (S.g.orbital || 0) > 0],
+  ["bh", "Event Horizon", "Buy a Black Hole Generator.", () => (S.g.blackhole || 0) > 0],
+  ["allw", "Full Arsenal", "Own every weapon at once.", () => WEAPONS.every(w => (S.w[w.id] || 0) > 0)],
+  ["allg", "Fully Automated", "Own every gadget at once.", () => GADGETS.every(g => (S.g[g.id] || 0) > 0)],
+  ["lvl100", "Overkill", "Get any item to Lvl 100.", () => ALL_ITEMS.some(([it, k]) => lvlOf(it, k) >= 100)],
+  ["res10", "Peer Reviewed", "Complete 10 research projects.", () => Object.keys(S.r).length >= 10],
+  ["clone1", "Send in the Clones", "Use the Clone Protocol.", () => st().prestiges >= 1],
+  ["clone5", "Clone Wars", "Use the Clone Protocol 5 times.", () => st().prestiges >= 5],
+  ["ab", "Chemically Assisted", "Use an ability.", () => st().abilities >= 1],
+  ["ab50", "Pharmacology", "Use 50 abilities.", () => st().abilities >= 50],
+  ["idle", "Coffee Break", "Let Hank out-heal you for 60 seconds straight.", () => outhealStreak >= 60],
+  ["sound", "Hear Him Scream", "Turn the sound on.", () => !!S.sound]
+];
+function checkAchievements() {
+  for (const [id, name, desc, test] of ACH) {
+    if (S.ach[id]) continue;
+    let ok = false; try { ok = test(); } catch (e) {}
+    if (ok) {
+      S.ach[id] = Date.now();
+      toast(`${name}: ${desc} All damage +2%.`, "ach", "Achievement unlocked");
+      log(`Achievement: ${name}.`, "sys");
+      sfx("unlock");
+    }
+  }
+}
+const HINTS = [
+  ["start", () => true, "Click Hank to harvest DNA. Every point of damage is worth 1 DNA."],
+  ["weak", () => S.play > 10, "See the glowing yellow reticle? That's a weak spot. Hits there deal x10 damage."],
+  ["fists", () => S.dna >= 10 && S.w.fists === 1, "You can afford better knuckles. Open the Requisition Terminal on the right."],
+  ["bat", () => S.runDna >= 50 && !S.w.bat, "The Spiked Bat is unlocked. Five times the damage of a fist."],
+  ["combo", () => combo >= 15, "Keep clicking fast to build your combo. Each hit in a row adds 1% damage."],
+  ["outheal", () => outhealStreak > 6 && baseDps() === 0, "Hank is healing faster than you can hurt him. Buy a gadget from the Gadgets tab. They deal damage on their own."],
+  ["ability", () => ABILITIES[0].unlock(), "Ability unlocked: Adrenaline. Press 1 or tap it under Hank for x5 click damage."],
+  ["research", () => availableResearch().length > 0, "A research project is ready. Check the Research tab for permanent upgrades."],
+  ["clone", () => cloneGain() >= 1, "The Clone Protocol is ready. Clone Hank to restart with Mutagen, which boosts all damage forever."]
+];
+let lastHint = -99;
+function checkHints() {
+  if (perfT - lastHint < 7) return;
+  for (const [id, test, text] of HINTS) {
+    if (S.hints[id]) continue;
+    let ok = false; try { ok = test(); } catch (e) {}
+    if (ok) { S.hints[id] = 1; lastHint = perfT; toast(text, "director", "Lab Director"); return; }
+  }
+}
+
+// ================== MODALS ==================
+function showAchievements() {
+  const tiles = ACH.map(([id, name, desc]) => `<div class="ach-tile${S.ach[id] ? " got" : ""}"><b>${esc(name)}</b><span>${esc(desc)}</span></div>`).join("");
+  openModal(`Achievements ${achCount()}/${ACH.length}`, `<p>Each achievement adds +2% to all damage. Current bonus: <b>+${achCount() * 2}%</b>.</p><div class="ach-grid">${tiles}</div>`, [{ label: "Close" }], "gold");
+}
+function showStats() {
+  const s = S.stats;
+  const rows = [
+    ["Time in the lab", fmtTime(S.play)], ["Generation", S.run + 1], ["Kills (all time)", fmt(s.kills)], ["Kills this generation", fmt(S.kills)],
+    ["Highest max HP", fmt(s.bestHp)], ["Clicks", fmt(s.clicks)], ["Critical hits", fmt(s.crits)], ["Weak spot hits", fmt(s.weak)],
+    ["Best combo", fmt(s.maxCombo)], ["Drones caught", fmt(s.drops)], ["Escapes stopped", `${fmt(s.escapes)} / ${fmt(s.escAttempts)}`],
+    ["Mutants killed", fmt(s.mutKills)], ["Abilities used", fmt(s.abilities)], ["DNA this generation", fmt(S.runDna)], ["DNA all time", fmt(s.totalDna)],
+    ["Mutagen", fmt(S.mutagen) + ` (+${fmt(S.mutagen * 10)}%)`], ["Achievement bonus", `+${achCount() * 2}%`], ["Total damage multiplier", "x" + globalMult().toFixed(2)]
+  ];
+  openModal("Subject file", `<dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`, [{ label: "Close" }], "");
+}
+function showClone() {
+  const g = cloneGain();
+  const need = g < 1 ? CLONE_MIN : Math.pow(g + 1, 2) * CLONE_MIN;
+  const html = `<p>Grind Hank down to a DNA sample and grow a fresh clone. The new Hank starts back at 100 HP, and every Mutagen you earn adds <b>+10% damage</b> to everything, forever.</p>
+    <p>You will gain</p><div class="big-num">+${fmt(g)} Mutagen</div>
+    <p style="margin-top:10px">You lose DNA, hardware, research and this generation's kills. You keep Mutagen, achievements, stats and ability unlocks.</p>
+    <p style="color:var(--muted)">Mutagen owned: ${fmt(S.mutagen)}. DNA this generation: ${fmt(S.runDna)}. ${g < 1 ? `First Mutagen at ${fmt(CLONE_MIN)} DNA.` : `Next Mutagen at ${fmt(need)} DNA.`}</p>`;
+  openModal("Clone Protocol", html, [{ label: "Not yet" }, { label: g < 1 ? "Not ready" : `Clone Hank (+${fmt(g)})`, cls: "mg", disabled: g < 1, fn: doClone }], "mg");
+}
+$("achBtn").addEventListener("click", showAchievements);
+$("statsBtn").addEventListener("click", showStats);
+$("cloneBtn").addEventListener("click", showClone);
+
 // ================== CONTROLS ==================
 function syncSoundBtn() { ui.soundBtn.setAttribute("aria-pressed", String(!!S.sound)); ui.soundBtn.textContent = S.sound ? "Sound on" : "Sound off"; }
-ui.soundBtn.addEventListener("click", () => { S.sound = !S.sound; if (S.sound) { audioInit(); if (ac && ac.state === "suspended") ac.resume(); sfx("buy"); } syncSoundBtn(); save(); });
-$("resetBtn").addEventListener("click", () => { $("modal").hidden = false; $("cancelReset").focus(); });
-$("cancelReset").addEventListener("click", () => { $("modal").hidden = true; });
-$("confirmReset").addEventListener("click", () => {
-  const snd = S.sound; S = fresh(); S.sound = snd; revive = 0; marks.length = 0;
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-  ui.log.innerHTML = ""; log("Research wiped. New subject file opened.", "sys");
-  $("modal").hidden = true; renderShop(); save();
+ui.soundBtn.addEventListener("click", () => {
+  S.sound = !S.sound;
+  if (S.sound) { audioInit(); if (ac && ac.state === "suspended") ac.resume(); sfx("buy"); }
+  setHum(S.sound); syncSoundBtn(); save();
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") $("modal").hidden = true; });
+$("resetBtn").addEventListener("click", () => openModal("Wipe all research?", "<p>This deletes everything: DNA, hardware, research, Mutagen, achievements and stats. Hank goes back to 100 HP. It cannot be undone.</p>", [
+  { label: "Keep data" },
+  { label: "Wipe it", cls: "danger", fn: () => {
+    const snd = S.sound; S = fresh(); S.sound = snd; revive = 0; marks.length = 0; decals.length = 0; escape = null; drone = null; combo = 0; gad.nanites.length = 0;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    ui.log.innerHTML = ""; log("Research wiped. New subject file opened.", "sys");
+    renderShop(); save();
+  } }
+]));
 
 // ================== ECG ==================
 const ecgBuf = new Array(78).fill(0); let ecgPhase = 0, ecgAcc = 0;
@@ -1280,9 +2027,10 @@ function ecgSample(phase) {
 }
 function ecgTick(dt, bpm) {
   ecgAcc += dt;
+  const flat = revive > REVIVE_TIME * .45;
   while (ecgAcc > 1 / 50) {
     ecgAcc -= 1 / 50;
-    if (revive > REVIVE_TIME * .45) ecgBuf.push(0);
+    if (flat) ecgBuf.push(0);
     else { ecgPhase = (ecgPhase + bpm / 60 / 50) % 1; ecgBuf.push(ecgSample(ecgPhase)); }
     ecgBuf.shift();
   }
@@ -1290,7 +2038,7 @@ function ecgTick(dt, bpm) {
   ectx.clearRect(0, 0, w, h);
   ectx.strokeStyle = "rgba(63,220,134,.12)"; ectx.lineWidth = 1;
   for (let x = 0; x < w; x += 13) { ectx.beginPath(); ectx.moveTo(x, 0); ectx.lineTo(x, h); ectx.stroke(); }
-  ectx.strokeStyle = revive > REVIVE_TIME * .45 ? "#e3262f" : "#3fdc86"; ectx.lineWidth = 2.2;
+  ectx.strokeStyle = flat ? "#e3262f" : buffOn("cryo") ? "#8fe3ff" : "#3fdc86"; ectx.lineWidth = 2.2;
   ectx.shadowColor = ectx.strokeStyle; ectx.shadowBlur = 6;
   ectx.beginPath();
   ecgBuf.forEach((v, i) => { const x = i / (ecgBuf.length - 1) * w, y = h * .62 - v * h * .5; i ? ectx.lineTo(x, y) : ectx.moveTo(x, y); });
@@ -1298,41 +2046,58 @@ function ecgTick(dt, bpm) {
 }
 
 // ================== MAIN LOOP ==================
-let last = performance.now(), saveT = 0, shopT = 0, trail = 1;
+let last = performance.now(), saveT = 0, shopT = 0, slowT = 0, trail = 1, outhealStreak = 0;
+const dnaHist = []; let dnaRate = 0;
 function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
-  perfT += dt; S.play += dt;
+  perfT += dt; S.play += dt; S.stats.play += dt;
 
-  // simulation
+  for (const k in S.buffs) { S.buffs[k] -= dt; if (S.buffs[k] <= 0) delete S.buffs[k]; }
+  for (const k in S.cd) { S.cd[k] -= dt; if (S.cd[k] <= 0) delete S.cd[k]; }
+
   if (revive > 0) {
     revive -= dt;
-    S.hp = S.maxHp * Math.min(1, Math.max(0, 1 - revive / (REVIVE_TIME * .55)));
-    if (revive <= 0) { S.hp = S.maxHp; revive = 0; }
+    S.hp = curMax() * Math.min(1, Math.max(0, 1 - revive / (REVIVE_TIME * .55)));
+    if (revive <= 0) { S.hp = curMax(); revive = 0; }
   } else {
     damage(autoDps() * dt, true);
-    if (revive <= 0) S.hp = Math.min(S.maxHp, S.hp + regenPerSec() * dt);
+    if (revive <= 0) S.hp = Math.min(curMax(), S.hp + regenPerSec() * dt);
   }
+  if (perfT - lastClick > COMBO_WINDOW && combo > 0) combo = 0;
+  eventsTick(dt);
   gadgetTick(dt, perfT);
   updateArms(dt, perfT);
 
-  // decay
-  shake = Math.max(0, shake - dt * 40); flash = Math.max(0, flash - dt); pain = Math.max(0, pain - dt); killFlash = Math.max(0, killFlash - dt * 1.4);
+  shake = Math.max(0, shake - dt * 40); flash = Math.max(0, flash - dt); pain = Math.max(0, pain - dt);
+  killFlash = Math.max(0, killFlash - dt * 1.4); zoom = Math.max(0, zoom - dt * .12); crack = Math.max(0, crack - dt);
   for (const m of marks) m.age += dt;
   while (marks.length && marks[0].age > marks[0].life) marks.shift();
-  for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; const drag = p.kind === "smoke" ? .98 : .9; p.vx *= drag; p.vy *= drag; if (p.age > p.life) parts.splice(i, 1); }
-  for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.age += dt; r.r += r.vr * dt; if (r.age > r.life) rings.splice(i, 1); }
+  for (const d of decals) d.age += dt;
+  while (decals.length && decals[0].age > 45) decals.shift();
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (!p.nodrag) { const drag = p.kind === "smoke" || p.kind === "plus" ? .98 : .9; p.vx *= drag; p.vy *= drag; }
+    if (p.age > p.life) parts.splice(i, 1);
+  }
+  for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.age += dt; r.r += r.vr * dt; if (r.age > r.life || r.r <= 0) rings.splice(i, 1); }
   for (let i = bolts.length - 1; i >= 0; i--) { const b = bolts[i]; b.age += dt; if (b.age > b.life) bolts.splice(i, 1); }
   for (let i = pops.length - 1; i >= 0; i--) { const p = pops[i]; p.age += dt; p.y -= 40 * dt; p.x += p.vx * dt; if (p.age > p.life) pops.splice(i, 1); }
   while (clickTimes.length && perfT - clickTimes[0] > 2) clickTimes.shift();
-  if (bubble) { bubble.age += dt; if (bubble.age > bubble.life) { bubble = null; bubbleCD = 9 + Math.random() * 10; } }
+  if (bubble) { bubble.age += dt; if (bubble.age > bubble.life) { bubble = null; bubbleCD = 10 + Math.random() * 12; } }
   else if (revive <= 0) { bubbleCD -= dt; if (bubbleCD <= 0) say(QUIPS[Math.floor(Math.random() * QUIPS.length)]); }
-  if (toastT > 0) { toastT -= dt; if (toastT <= 0) ui.toast.hidden = true; }
 
   render(perfT);
   hud(dt);
 
   saveT += dt; if (saveT > 5) { saveT = 0; save(); }
-  shopT += dt; if (shopT > .15) { shopT = 0; updateShop(); }
+  shopT += dt; if (shopT > .15) { shopT = 0; updateShop(); updateAbilities(); }
+  slowT += dt;
+  if (slowT > 1) {
+    slowT = 0;
+    dnaHist.push(S.totalDna); if (dnaHist.length > 6) dnaHist.shift();
+    dnaRate = dnaHist.length > 1 ? (dnaHist[dnaHist.length - 1] - dnaHist[0]) / (dnaHist.length - 1) : 0;
+    checkAchievements(); checkHints(); updateBadges();
+  }
   requestAnimationFrame(frame);
 }
 
@@ -1340,10 +2105,12 @@ function render(t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(bg, 0, 0);
   const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
-  const T = [dpr * sc, 0, 0, dpr * sc, dpr * (ox + sx * sc), dpr * (oy + sy * sc)];
+  // zoom punch around Hank's middle
+  const z = 1 + zoom, zx = 300, zy = 420;
+  const s2 = sc * z;
+  const T = [dpr * s2, 0, 0, dpr * s2, dpr * (ox + sx * sc + zx * sc * (1 - z)), dpr * (oy + sy * sc + zy * sc * (1 - z))];
   ctx.setTransform(...T);
 
-  // vat glow pulses
   ctx.globalCompositeOperation = "lighter";
   for (const [x, y, r] of VATS) {
     const a = .12 + Math.sin(t * 1.3 + x) * .05;
@@ -1353,36 +2120,55 @@ function render(t) {
   }
   ctx.globalCompositeOperation = "source-over";
 
+  // blood decals on the steel
+  for (const d of decals) {
+    const a = Math.min(1, (45 - d.age) / 10) * .75;
+    const r = rng(d.seed);
+    ctx.fillStyle = `rgba(110,10,16,${a})`;
+    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
+    for (let i = 0; i < 5; i++) { const ang = r() * 6.28, dd = d.r * (1 + r() * .8); ctx.beginPath(); ctx.arc(d.x + Math.cos(ang) * dd, d.y + Math.sin(ang) * dd, d.r * (.15 + r() * .25), 0, 7); ctx.fill(); }
+  }
+
   drawGadgetsUnder(ctx, t);
 
-  // Hank (with a little recoil when hurt)
-  const dmgRatio = revive > 0 ? 0 : 1 - S.hp / S.maxHp;
+  const dmgRatio = revive > 0 ? 0 : 1 - S.hp / curMax();
   ctx.save();
-  if (pain > 0) ctx.translate((Math.random() - .5) * pain * 4, (Math.random() - .5) * pain * 3);
+  if (pain > 0 && !buffOn("cryo")) ctx.translate((Math.random() - .5) * pain * 4, (Math.random() - .5) * pain * 3);
+  if (S.mut === "giant") { ctx.translate(300, 420); ctx.scale(1.07, 1.05); ctx.translate(-300, -420); }
   drawHank(ctx, t, dmgRatio, pain);
   ctx.restore();
 
-  // hit flash / regeneration glow (silhouette pass)
-  const tint = flash > 0 ? ["#ff2a2a", flash / .12 * .45] : revive > 0 ? ["#5dff9a", .25 + .35 * Math.sin(Math.min(1, revive / REVIVE_TIME) * Math.PI)] : null;
+  let tint = null;
+  if (flash > 0) tint = ["#ff2a2a", flash / .12 * .45];
+  else if (revive > 0) tint = ["#5dff9a", .25 + .35 * Math.sin(Math.min(1, revive / REVIVE_TIME) * Math.PI)];
+  else if (buffOn("cryo")) tint = ["#9fe8ff", .42];
+  else if (buffOn("enraged")) tint = ["#ff2a2a", .12 + Math.sin(t * 8) * .08];
   if (tint) {
     fxx.setTransform(1, 0, 0, 1, 0, 0); fxx.clearRect(0, 0, cw, ch);
-    fxx.setTransform(...T); drawSilhouette(fxx, tint[0]);
+    fxx.setTransform(...T);
+    if (S.mut === "giant") { fxx.translate(300, 420); fxx.scale(1.07, 1.05); fxx.translate(-300, -420); }
+    drawSilhouette(fxx, tint[0]);
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = tint[1];
     if (revive > 0) { ctx.shadowColor = "#5dff9a"; ctx.shadowBlur = 30 * dpr; }
     ctx.drawImage(fx, 0, 0); ctx.restore();
   }
+  if (buffOn("cryo")) { // ice crystals
+    const r = rng(3); ctx.strokeStyle = "rgba(230,250,255,.7)"; ctx.lineWidth = 1.2;
+    for (let i = 0; i < 26; i++) { const p = WEAK_SPOTS[i % WEAK_SPOTS.length], x = p[0] + (r() - .5) * 60, y = p[1] + (r() - .5) * 60, s = 3 + r() * 5; ctx.beginPath(); for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; ctx.moveTo(x - Math.cos(a) * s, y - Math.sin(a) * s); ctx.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s); } ctx.stroke(); }
+  }
 
+  drawWeak(ctx, t);
   drawGadgetsOver(ctx, t);
 
-  // particles
   for (const p of parts) {
     const k = 1 - p.age / p.life;
     if (p.kind === "smoke") { ctx.globalAlpha = k * .8; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - k), 0, 7); ctx.fill(); }
     else if (p.kind === "spark") { ctx.globalAlpha = k; ctx.strokeStyle = p.color; ctx.lineWidth = p.size; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * .04, p.y - p.vy * .04); ctx.stroke(); }
+    else if (p.kind === "plus") { ctx.globalAlpha = k * .8; ctx.strokeStyle = p.color; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(p.x - p.size, p.y); ctx.lineTo(p.x + p.size, p.y); ctx.moveTo(p.x, p.y - p.size); ctx.lineTo(p.x, p.y + p.size); ctx.stroke(); }
     else { ctx.globalAlpha = Math.min(1, k * 1.5); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
   }
   ctx.globalAlpha = 1;
-  for (const r of rings) { ctx.globalAlpha = 1 - r.age / r.life; ctx.strokeStyle = r.color; ctx.lineWidth = r.w; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.stroke(); }
+  for (const r of rings) { if (r.r <= 0) continue; ctx.globalAlpha = 1 - r.age / r.life; ctx.strokeStyle = r.color; ctx.lineWidth = r.w; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.stroke(); }
   ctx.globalAlpha = 1;
   for (const b of bolts) {
     const k = 1 - b.age / b.life;
@@ -1392,12 +2178,12 @@ function render(t) {
         ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); b.pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
       }
     } else if (b.beam) {
-      const w = (b.violet ? 16 : 34) * k;
+      const w = (b.w || 34) * k;
+      const c = b.color || "200,240,255";
       const gr = ctx.createLinearGradient(b.x - w, 0, b.x + w, 0);
-      const c = b.violet ? "180,160,255" : "200,240,255";
       gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.5, `rgba(255,255,255,${k})`); gr.addColorStop(1, `rgba(${c},0)`);
       ctx.fillStyle = gr; ctx.fillRect(b.x - w, b.y - 2000, w * 2, 2000);
-      ctx.globalAlpha = k; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b.x, b.y, w * .9, 0, 7); ctx.fill();
+      ctx.globalAlpha = k; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b.x, b.y, Math.max(.1, w * .9), 0, 7); ctx.fill();
     } else if (b.slash) {
       ctx.globalAlpha = k; ctx.lineCap = "round";
       const dx = Math.cos(b.a) * 34, dy = Math.sin(b.a) * 34;
@@ -1407,117 +2193,178 @@ function render(t) {
   }
   ctx.globalAlpha = 1;
 
-  // robot arms on top of everything physical
   const tool = topWeapon();
   for (const a of arms) drawArm(ctx, a, tool);
 
-  // damage numbers
+  if (drone) drawDrone(ctx, drone, t);
+
+  // escape progress ring
+  if (escape) {
+    const c = CUFFS[escape.cuff], cx = c.x + c.w / 2, cy = c.y + c.h / 2, k = 1 - escape.t / escape.dur;
+    ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, c.w / 2 + 14, 0, 7); ctx.stroke();
+    ctx.strokeStyle = k > .35 ? "#ffcf6b" : "#ff3b45"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(cx, cy, c.w / 2 + 14, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+    ctx.font = '16px "Share Tech Mono", monospace'; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = 4; ctx.strokeStyle = "#000";
+    const label = `CLICK ${escape.hits}/${escape.need}`;
+    ctx.strokeText(label, cx, cy - c.w / 2 - 26); ctx.fillStyle = "#fff"; ctx.fillText(label, cx, cy - c.w / 2 - 26);
+  }
+
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (const p of pops) {
     const k = 1 - p.age / p.life;
     ctx.globalAlpha = Math.min(1, k * 2);
-    ctx.font = `${p.size}px "Share Tech Mono", ui-monospace, monospace`;
+    const sz = p.size * (p.age < .08 ? 1 + (1 - p.age / .08) * .4 : 1);
+    ctx.font = `${sz}px "Share Tech Mono", ui-monospace, monospace`;
     ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(p.text, p.x, p.y);
     ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
   }
   ctx.globalAlpha = 1;
 
-  // speech bubble
+  if (combo >= 5) {
+    const k = Math.min(1, (COMBO_WINDOW - (perfT - lastClick)) / COMBO_WINDOW + .3);
+    ctx.globalAlpha = Math.max(0, k);
+    ctx.font = `${Math.min(30, 16 + combo / 10)}px "Black Ops One", Impact, sans-serif`;
+    ctx.textAlign = "right"; ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,.85)";
+    const txt = `${combo} HIT${combo === 1 ? "" : "S"}`;
+    ctx.strokeText(txt, 488, 108); ctx.fillStyle = combo >= comboCap() ? "#ffe14f" : "#ff8a3c"; ctx.fillText(txt, 488, 108);
+    ctx.font = '12px "Share Tech Mono", monospace'; ctx.strokeText("x" + comboMult().toFixed(2) + " DMG", 488, 130); ctx.fillStyle = "#fff"; ctx.fillText("x" + comboMult().toFixed(2) + " DMG", 488, 130);
+    ctx.globalAlpha = 1;
+  }
+
   if (bubble) {
     const k = Math.min(1, bubble.age * 6, (bubble.life - bubble.age) * 4);
     ctx.globalAlpha = Math.max(0, k);
     ctx.font = '13px "Chakra Petch", system-ui, sans-serif';
-    const tw = Math.min(260, ctx.measureText(bubble.text).width) + 20;
-    const bx = Math.min(492 - tw, 336), by = 62;
+    const tw = Math.min(250, ctx.measureText(bubble.text).width) + 20;
+    const bx = Math.max(104, Math.min(496 - tw, 330 - tw * .15)), by = 58;
     ctx.fillStyle = "rgba(240,236,220,.95)"; roundRect(ctx, bx, by, tw, 28, 6); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(bx + 10, by + 28); ctx.lineTo(bx + 4, by + 44); ctx.lineTo(bx + 24, by + 28); ctx.fill();
-    ctx.fillStyle = "#1a1512"; ctx.textAlign = "left"; ctx.fillText(bubble.text, bx + 10, by + 15, 260);
+    ctx.beginPath(); ctx.moveTo(Math.max(bx + 8, 300), by + 28); ctx.lineTo(300, by + 52); ctx.lineTo(Math.max(bx + 8, 300) + 14, by + 28); ctx.fill();
+    ctx.fillStyle = "#1a1512"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(bubble.text, bx + 10, by + 15, 250);
     ctx.globalAlpha = 1;
   }
 
-  // flatline banner
   if (revive > 0) {
-    ctx.textAlign = "center";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
     const early = revive > REVIVE_TIME * .45;
     ctx.font = '30px "Black Ops One", Impact, sans-serif';
     ctx.lineWidth = 6; ctx.strokeStyle = "rgba(0,0,0,.85)";
-    const txt = early ? "SUBJECT FLATLINED" : "REGENERATING...";
-    ctx.strokeText(txt, 300, 470); ctx.fillStyle = early ? "#ff3b45" : "#5dff9a"; ctx.fillText(txt, 300, 470);
+    const txt = early ? "SUBJECT FLATLINED" : S.mut ? "MUTATION DETECTED" : "REGENERATING...";
+    ctx.strokeText(txt, 300, 470); ctx.fillStyle = early ? "#ff3b45" : S.mut ? "#c58bff" : "#5dff9a"; ctx.fillText(txt, 300, 470);
     ctx.font = '14px "Share Tech Mono", monospace';
-    const sub = early ? "KILL #" + S.kills + " CONFIRMED" : "MAX HP x1.5 → " + fmt(S.maxHp);
+    const sub = early ? "KILL #" + S.kills + " CONFIRMED" : S.mut ? MUTATIONS[S.mut].name.toUpperCase() + " // x5 PAYOUT" : "MAX HP x1.5 → " + fmt(curMax());
     ctx.strokeText(sub, 300, 500); ctx.fillStyle = "#e8f4f6"; ctx.fillText(sub, 300, 500);
   }
 
-  // kill flash over whole canvas
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (killFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${killFlash * .5})`; ctx.fillRect(0, 0, cw, ch); }
-  // scanlines + vignette for the security-cam look
+  if (buffOn("cryo")) { const g = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .3, cw / 2, ch / 2, Math.max(cw, ch) * .7); g.addColorStop(0, "rgba(143,227,255,0)"); g.addColorStop(1, "rgba(143,227,255,.18)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
+  if (buffOn("adrenaline") || buffOn("frenzy")) { const g = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .35, cw / 2, ch / 2, Math.max(cw, ch) * .7); g.addColorStop(0, "rgba(242,176,30,0)"); g.addColorStop(1, `rgba(242,176,30,${.12 + Math.sin(t * 6) * .04})`); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
   const vg = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .35, cw / 2, ch / 2, Math.max(cw, ch) * .75);
   vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)");
   ctx.fillStyle = vg; ctx.fillRect(0, 0, cw, ch);
+  // cracked camera lens after an escape
+  if (crack > 0) {
+    const a = Math.min(1, crack), r = rng(crackSeed), cx = cw * (.35 + r() * .3), cy = ch * (.3 + r() * .3);
+    ctx.globalAlpha = a; ctx.strokeStyle = "rgba(235,245,250,.85)"; ctx.lineWidth = 1.5 * dpr;
+    for (let i = 0; i < 14; i++) {
+      let x = cx, y = cy, ang = r() * 6.28;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let j = 0; j < 6; j++) { ang += (r() - .5) * .8; const l = (30 + r() * 80) * dpr; x += Math.cos(ang) * l; y += Math.sin(ang) * l; ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.beginPath(); ctx.arc(cx, cy, 16 * dpr, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 }
 
 function hud(dt) {
-  const hp = Math.max(0, S.hp), ratio = hp / S.maxHp;
-  trail += (Math.max(trail > ratio ? ratio : ratio, 0) - trail) * Math.min(1, dt * (trail > ratio ? 2.5 : 20));
+  const max = curMax(), hp = Math.max(0, S.hp), ratio = hp / max;
+  trail += (ratio - trail) * Math.min(1, dt * (trail > ratio ? 2.5 : 20));
   if (trail < ratio) trail = ratio;
   ui.hpFill.style.width = (ratio * 100).toFixed(2) + "%";
   ui.hpTrail.style.width = (trail * 100).toFixed(2) + "%";
   ui.hpFill.classList.toggle("regen", revive > 0);
-  setText(ui.hpText, "hp", `${fmt(Math.ceil(hp))} / ${fmt(S.maxHp)} HP`);
-  ui.hpMeter.setAttribute("aria-valuemax", S.maxHp); ui.hpMeter.setAttribute("aria-valuenow", Math.ceil(hp));
+  ui.hpFill.classList.toggle("cryo", buffOn("cryo") && revive <= 0);
+  ui.hpMeter.classList.toggle("mutated", !!S.mut);
+  setText(ui.mutLabel, "mut", S.mut ? "MUTATION: " + MUTATIONS[S.mut].name.toUpperCase() : "");
+  setText(ui.hpText, "hp", `${fmt(Math.ceil(hp))} / ${fmt(max)} HP`);
+  ui.hpMeter.setAttribute("aria-valuemax", max); ui.hpMeter.setAttribute("aria-valuenow", Math.ceil(hp));
   const regen = regenPerSec();
-  setText(ui.regenText, "regen", `+${fmtRate(regen)}/s REGEN`);
+  setText(ui.regenText, "regen", buffOn("cryo") ? "REGEN FROZEN" : `+${fmtRate(regen)}/s REGEN`);
+  ui.regenText.classList.toggle("off", buffOn("cryo"));
   setText(ui.nextHp, "next", `Next revive: ${fmt(Math.ceil(S.maxHp * REVIVE_MULT))} max HP`);
   setText(ui.dna, "dna", fmt(S.dna));
+  setText(ui.dnaRate, "rate", fmt(Math.max(0, dnaRate)) + " / sec");
   setText(ui.kills, "kills", fmt(S.kills));
   const cd = clickDmg(), dps = autoDps();
   setText(ui.clickDmg, "cd", fmt(cd));
   setText(ui.dps, "dps", fmt(dps) + "/s");
-  setText(ui.lifetime, "life", fmt(S.totalDna));
+  setText(ui.combo, "combo", "x" + comboMult().toFixed(2));
+  ui.mgRow.hidden = !S.mutagen;
+  setText(ui.mutagen, "mg", fmt(S.mutagen) + ` (+${fmt(S.mutagen * 10)}%)`);
+  setText(ui.gen, "gen", "Gen " + (S.run + 1));
+  setText(ui.achCount, "ach", `${achCount()}/${ACH.length}`);
+  ui.cloneBtn.classList.toggle("ready", cloneGain() >= 1);
   setText(ui.clock, "clock", clockStr());
+
   const cps = clickTimes.length / 2;
   const out = cd * cps + dps;
   const winning = out > regen;
-  const st = revive > 0 ? "Subject regenerating" : winning ? `Trauma ${fmtRate(out)}/s > regen` : dps + cd * cps > 0 && cps > 0 ? "Subject out-healing trauma" : dps > 0 ? "Gadgets out-healed. Click or upgrade" : "Click Hank to begin harvesting";
-  setText(ui.status, "status", st);
-  const cls = "status " + (revive > 0 || winning ? "good" : "bad");
+  if (!winning && revive <= 0) outhealStreak += dt; else outhealStreak = 0;
+  const stt = revive > 0 ? "Subject regenerating" : buffOn("cryo") ? "Regeneration frozen" : winning ? `Trauma ${fmtRate(out)}/s > regen` : cps > 0 ? "Subject out-healing trauma" : dps > 0 ? "Gadgets out-healed. Click or upgrade" : "Click Hank to begin harvesting";
+  setText(ui.status, "status", stt);
+  const cls = "status " + (revive > 0 || winning || buffOn("cryo") ? "good" : "bad");
   if (ui.status.className !== cls) ui.status.className = cls;
-  const bpm = Math.round(68 + 110 * (1 - ratio) + Math.min(40, cps * 4));
+
+  // buff chips
+  const chips = [];
+  const B = (id, label, kind) => { if (buffOn(id)) chips.push(`<span class="chip ${kind}">${label} ${Math.ceil(S.buffs[id])}s</span>`); };
+  B("adrenaline", "Adrenaline x5", "hot"); B("frenzy", "Frenzy x7", "hot"); B("overcharge", "Overcharge x4", "hot"); B("overclock", "Overclock x7", "hot");
+  B("harvest", "Harvest x3 DNA", "good"); B("cryo", "Cryo", "cold"); B("enraged", "Enraged regen x2", "bad");
+  if (perfT < cauterUntil && !buffOn("cryo")) chips.push(`<span class="chip hot">Cauterized</span>`);
+  if (S.mut) chips.push(`<span class="chip mut">${MUTATIONS[S.mut].name}: ${MUTATIONS[S.mut].desc}</span>`);
+  const html = chips.join("");
+  if (cache.buffs !== html) { cache.buffs = html; ui.buffs.innerHTML = html; }
+
+  const bpm = buffOn("cryo") ? 24 : Math.round(68 + 110 * (1 - ratio) + Math.min(40, cps * 4) + (buffOn("enraged") ? 40 : 0));
   setText(ui.bpm, "bpm", revive > REVIVE_TIME * .45 ? "--- BPM" : bpm + " BPM");
   ecgTick(dt, bpm);
 }
 
 // ================== BOOT ==================
 function start(data) {
-  const loaded = (data && data.S) || load();
-  if (loaded) S = Object.assign(fresh(), loaded);
+  const loaded = (data && data.S && hydrate(data.S)) || load();
+  if (loaded) S = loaded;
   syncSoundBtn();
   layout();
+  renderAbilities();
   renderShop();
   log("Chamber 7 online. Subject H.A.N.K. restrained.", "sys");
   if (loaded && !(data && data.S)) {
     const away = Math.min(OFFLINE_CAP, Math.max(0, (Date.now() - (S.saved || Date.now())) / 1000));
-    const gain = Math.floor(autoDps() * away * OFFLINE_RATE);
-    if (gain > 0 && away > 30) {
-      S.dna += gain; S.totalDna += gain;
+    const g = Math.floor(baseDps() * globalMult() * away * OFFLINE_RATE);
+    if (g > 0 && away > 30) {
+      gain(g);
       const mins = Math.round(away / 60);
-      toast(`While you were away (${mins} min) the gadgets harvested ${fmt(gain)} DNA.`);
-      log(`Offline harvest: +${fmt(gain)} DNA over ${mins} min.`, "sys");
+      toast(`While you were away (${mins} min) the gadgets harvested ${fmt(g)} DNA.`, "", "Welcome back");
+      log(`Offline harvest: +${fmt(g)} DNA over ${mins} min.`, "sys");
     }
-    log(`Research file restored. ${fmt(S.kills)} kills on record.`, "sys");
+    log(`Research file restored. Generation ${S.run + 1}, ${fmt(S.kills)} kills on record.`, "sys");
   } else if (!loaded) {
     setTimeout(() => say("Oh good. A new intern."), 900);
   }
-  if (S.hp <= 0) S.hp = S.maxHp;
+  if (S.hp <= 0) S.hp = curMax();
   new ResizeObserver(layout).observe(app);
   new ResizeObserver(layout).observe(stageEl);
   window.addEventListener("resize", layout);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { cache.hp = null; });
   document.addEventListener("visibilitychange", () => { if (document.hidden) save(); else last = performance.now(); });
   window.addEventListener("pagehide", save);
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 }
+
+// test hook: open with #debug to poke the simulation from the console
+if (location.hash === "#debug") window.KH = { get S() { return S; }, drone: () => { droneT = 0; }, escape: () => { escapeT = 0; }, ability: id => useAbility(ABILITIES.find(a => a.id === id)) };
 
 const hot = window.claude && window.claude.hot;
 if (hot && hot.snapshot) hot.snapshot(() => ({ S }));
